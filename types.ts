@@ -18,7 +18,8 @@ export interface CartItem extends MenuItem {
 export enum OrderStatus {
   PENDING = 'pending',     // 待處理
   PREPARING = 'preparing', // 製作中
-  COMPLETED = 'completed', // 已完成
+  COMPLETED = 'completed', // 已完成 (可取餐)
+  SERVED = 'served',       // 已送餐 (結案)
   CANCELLED = 'cancelled'  // 已取消
 }
 

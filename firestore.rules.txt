@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 輔助函式：檢查是否為已登入的管理員
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // 1. 商品資料 (products)
+    // 允許所有人讀取 (首頁顯示菜單)
+    // 只有管理員可以新增/修改/刪除
+    match /products/{product} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 2. 商店設定 (settings)
+    // 允許所有人讀取 (檢查是否營業中)
+    // 只有管理員可以修改
+    match /settings/{setting} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 3. 訂單 (orders)
+    // 允許所有人新增 (顧客下單)
+    // 只有管理員可以讀取列表、修改狀態或刪除
+    match /orders/{order} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // 4. 計數器 (counters)
+    // 用於產生每日訂單流水號
+    // 必須允許公開讀取與寫入，因為顧客端在下單時需要執行 Transaction 更新此數值
+    match /counters/{counter} {
+      allow read, write: if true;
+    }
+  }
+}

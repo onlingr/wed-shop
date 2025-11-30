@@ -7,6 +7,8 @@ import Loading from '../components/Loading';
 import { MENU_ITEMS } from '../constants';
 
 type Tab = 'orders' | 'menu' | 'settings';
+// 新增：訂單篩選狀態類型 (加入 'all')
+type OrderFilterType = 'all' | 'pending' | 'preparing' | 'completed' | 'history';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('orders');
@@ -14,6 +16,12 @@ const AdminDashboard: React.FC = () => {
   // Orders State (全時監聽)
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  
+  // 新增：訂單篩選狀態 (預設顯示待處理)
+  const [orderFilter, setOrderFilter] = useState<OrderFilterType>('pending');
+  
+  // 新增：控制哪個訂單卡片開啟了管理選單
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   // Menu State
   const [products, setProducts] = useState<MenuItem[]>([]);
@@ -26,7 +34,6 @@ const AdminDashboard: React.FC = () => {
   const [settingsLoading, setSettingsLoading] = useState(false);
 
   // --- Real-time Orders (Always Active) ---
-  // 移除了 if (activeTab !== 'orders') 的限制，確保在任何分頁都能收到新訂單
   useEffect(() => {
     setOrdersLoading(true);
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
@@ -42,15 +49,61 @@ const AdminDashboard: React.FC = () => {
       setOrdersLoading(false);
     });
     return () => unsubscribe();
-  }, []); // Empty dependency array = run once on mount and stay active
+  }, []); 
 
-  // 計算待處理訂單數量
-  const pendingCount = useMemo(() => {
-    return orders.filter(o => o.status === OrderStatus.PENDING).length;
+  // --- Computed Values for Badges & Filtering ---
+  
+  // 計算各狀態數量
+  const counts = useMemo(() => {
+    return {
+      all: orders.length, // 所有訂單總數
+      pending: orders.filter(o => o.status === OrderStatus.PENDING).length,
+      preparing: orders.filter(o => o.status === OrderStatus.PREPARING).length,
+      completed: orders.filter(o => o.status === OrderStatus.COMPLETED).length,
+      // 歷史包含: 已送餐 + 已取消
+      history: orders.filter(o => o.status === OrderStatus.SERVED || o.status === OrderStatus.CANCELLED).length
+    };
   }, [orders]);
 
+  // 計算今日已完成 (COMPLETED + SERVED) 訂單總金額
+  const todayRevenue = useMemo(() => {
+    const todayStr = new Date().toDateString(); // 取得今日日期字串 (例如 "Sat Nov 30 2024")
+    
+    return orders.reduce((sum, order) => {
+      // 確保訂單有時間戳記
+      if (!order.createdAt?.toDate) return sum;
+      
+      const orderDate = order.createdAt.toDate();
+      // 判斷是否為今天
+      const isToday = orderDate.toDateString() === todayStr;
+      
+      // 判斷狀態：只計算「可取餐」與「已送餐」的金額，這代表訂單已實質完成
+      const isRevenue = order.status === OrderStatus.COMPLETED || order.status === OrderStatus.SERVED;
+      
+      if (isToday && isRevenue) {
+        return sum + order.totalAmount;
+      }
+      return sum;
+    }, 0);
+  }, [orders]);
+
+  // 待處理總數 (用於瀏覽器標題與主分頁 Badge)
+  const pendingCount = counts.pending;
+
+  // 根據篩選器過濾訂單列表
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      if (orderFilter === 'all') return true; // 顯示全部
+      if (orderFilter === 'pending') return order.status === OrderStatus.PENDING;
+      if (orderFilter === 'preparing') return order.status === OrderStatus.PREPARING;
+      if (orderFilter === 'completed') return order.status === OrderStatus.COMPLETED;
+      if (orderFilter === 'history') return order.status === OrderStatus.SERVED || order.status === OrderStatus.CANCELLED;
+      return true;
+    });
+  }, [orders, orderFilter]);
+
+
   // --- Browser Title Notification ---
-  // 當有待處理訂單時，修改瀏覽器標題
   useEffect(() => {
     const originalTitle = document.title;
     if (pendingCount > 0) {
@@ -58,7 +111,7 @@ const AdminDashboard: React.FC = () => {
     } else {
       document.title = '美味點餐 - 管理後台';
     }
-    return () => { document.title = '美味點餐 - 遠端點餐系統'; }; // Cleanup
+    return () => { document.title = '美味點餐 - 遠端點餐系統'; };
   }, [pendingCount]);
 
   // --- Real-time Products ---
@@ -71,7 +124,6 @@ const AdminDashboard: React.FC = () => {
         id: doc.id,
         ...doc.data()
       } as MenuItem));
-      // 簡單排序：依分類再依名稱
       items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
       setProducts(items);
       setMenuLoading(false);
@@ -91,7 +143,6 @@ const AdminDashboard: React.FC = () => {
       if (docSnap.exists()) {
         setStoreOpen(docSnap.data().isOpen !== false);
       } else {
-        // 若文檔不存在，預設為開啟
         setStoreOpen(true);
       }
       setSettingsLoading(false);
@@ -142,10 +193,8 @@ const AdminDashboard: React.FC = () => {
       };
 
       if (editingProduct.id) {
-        // Edit existing
         await updateDoc(doc(db, "products", editingProduct.id), productData);
       } else {
-        // Add new
         await addDoc(collection(db, "products"), productData);
       }
       setIsModalOpen(false);
@@ -166,7 +215,6 @@ const AdminDashboard: React.FC = () => {
   const importDefaultMenu = async () => {
     if (!window.confirm("這將會把預設菜單資料寫入資料庫，確定執行？")) return;
     try {
-      // 簡單迴圈寫入，實際專案可用 batch
       for (const item of MENU_ITEMS) {
         await addDoc(collection(db, "products"), {
             name: item.name,
@@ -186,9 +234,10 @@ const AdminDashboard: React.FC = () => {
   // --- Helper for Status Color ---
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case OrderStatus.PENDING: return 'bg-red-100 text-red-800 border-red-200'; // 改為紅色
+      case OrderStatus.PENDING: return 'bg-red-100 text-red-800 border-red-200';
       case OrderStatus.PREPARING: return 'bg-blue-100 text-blue-800 border-blue-200';
       case OrderStatus.COMPLETED: return 'bg-green-100 text-green-800 border-green-200';
+      case OrderStatus.SERVED: return 'bg-gray-100 text-gray-600 border-gray-200';
       case OrderStatus.CANCELLED: return 'bg-gray-100 text-gray-800 border-gray-200';
       default: return 'bg-gray-50';
     }
@@ -197,7 +246,7 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
-      {/* Tab Navigation */}
+      {/* Top Navigation */}
       <div className="mb-8 border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
@@ -208,7 +257,6 @@ const AdminDashboard: React.FC = () => {
             `}
           >
             訂單管理
-            {/* 訂單通知紅點 Badge */}
             {pendingCount > 0 && (
               <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full animate-pulse">
                 {pendingCount}
@@ -233,95 +281,220 @@ const AdminDashboard: React.FC = () => {
       {/* --- TAB: ORDERS --- */}
       {activeTab === 'orders' && (
         <>
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">即時訂單監控</h1>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              {pendingCount > 0 && (
-                 <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded">
-                   {pendingCount} 筆待處理
-                 </span>
-              )}
-              <span>共 {orders.length} 筆</span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">即時訂單監控</h1>
+              {/* 今日營收顯示 */}
+              <div className="bg-green-50 px-3 py-1.5 rounded-lg border border-green-200 shadow-sm flex items-center gap-2">
+                 <span className="text-sm text-green-800 font-medium">今日已完成營收:</span>
+                 <span className="text-lg font-bold text-green-700">${todayRevenue}</span>
+              </div>
+            </div>
+            
+            {/* 訂單分類篩選按鈕 (Tabs) */}
+            <div className="flex p-1 space-x-1 bg-gray-100 rounded-xl overflow-x-auto max-w-full">
+              {[
+                { id: 'all', label: '全部', count: counts.all, color: 'text-gray-800' },
+                { id: 'pending', label: '新訂單', count: counts.pending, color: 'text-red-600' },
+                { id: 'preparing', label: '製作中', count: counts.preparing, color: 'text-blue-600' },
+                { id: 'completed', label: '可取餐', count: counts.completed, color: 'text-green-600' },
+                { id: 'history', label: '歷史記錄', count: counts.history, color: 'text-gray-600' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setOrderFilter(tab.id as OrderFilterType)}
+                  className={`
+                    w-full sm:w-auto flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap
+                    ${orderFilter === tab.id 
+                      ? 'bg-white shadow text-gray-900' 
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200'}
+                  `}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className={`ml-2 py-0.5 px-2 rounded-full text-xs font-bold bg-white shadow-sm border ${tab.color.replace('text', 'border')} ${tab.color}`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
           
           {ordersLoading ? <Loading /> : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
-              {orders.map((order) => (
-                <div 
-                  key={order.id} 
-                  className={`
-                    bg-white rounded-lg border-2 shadow-sm overflow-hidden flex flex-col transition-all duration-300
-                    ${order.status === OrderStatus.PENDING 
-                      ? 'border-red-500 shadow-lg shadow-red-100 ring-1 ring-red-500' // 新訂單強化視覺：紅色邊框、陰影
-                      : 'border-gray-100 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  <div className="p-4 flex-grow">
-                    <div className="flex justify-between items-start mb-4">
-                      {/* 顯示訂單編號 */}
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded border border-brand-100 mb-1 inline-block w-fit">
-                          #{String(order.orderNumber || 0).padStart(3, '0')}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString('zh-TW') : '剛剛'}
-                        </span>
+              {filteredOrders.map((order) => {
+                const isMenuOpen = menuOpenId === order.id;
+                
+                return (
+                  <div 
+                    key={order.id} 
+                    className={`
+                      bg-white rounded-lg border-2 shadow-sm overflow-hidden flex flex-col transition-all duration-300 relative
+                      ${order.status === OrderStatus.PENDING 
+                        ? 'border-red-500 shadow-lg shadow-red-50 ring-2 ring-red-100' 
+                        : order.status === OrderStatus.PREPARING 
+                          ? 'border-blue-400 ring-1 ring-blue-50'
+                          : order.status === OrderStatus.COMPLETED
+                            ? 'border-green-400 ring-1 ring-green-50'
+                            : 'border-gray-100 opacity-75'
+                      }
+                    `}
+                  >
+                    <div className="p-4 flex-grow">
+                      {/* 卡片頂部資訊列 */}
+                      <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100 border-dashed">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-black text-gray-800 font-mono bg-gray-100 px-2 py-1 rounded">
+                              #{String(order.orderNumber || 0).padStart(3, '0')}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getStatusColor(order.status)}`}>
+                              {order.status === OrderStatus.PENDING ? '新訂單' : 
+                              order.status === OrderStatus.PREPARING ? '製作中' :
+                              order.status === OrderStatus.COMPLETED ? '可取餐' : 
+                              order.status === OrderStatus.SERVED ? '已送餐' : '已取消'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-400 mt-1 pl-1">
+                            {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '剛剛'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-red-600">${order.totalAmount}</div>
+                        </div>
                       </div>
-                      
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${getStatusColor(order.status)}`}>
-                        {order.status === OrderStatus.PENDING ? '🔔 新訂單' : 
-                         order.status === OrderStatus.PREPARING ? '製作中' :
-                         order.status === OrderStatus.COMPLETED ? '已完成' : '已取消'}
-                      </span>
+
+                      {/* 顧客資料 */}
+                      <div className="bg-gray-50 p-3 rounded mb-4 text-sm border border-gray-100 flex flex-col gap-1">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-gray-800">{order.customerName}</span>
+                          <a href={`tel:${order.customerPhone}`} className="text-blue-600 hover:underline font-mono">{order.customerPhone}</a>
+                        </div>
+                        {order.customerNote && (
+                          <div className="mt-1 text-gray-700 bg-yellow-50 px-2 py-1 rounded border border-yellow-100 text-xs font-medium flex items-start gap-1">
+                            <span className="shrink-0">📝</span> 
+                            <span>{order.customerNote}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 餐點清單 */}
+                      <div className="space-y-2">
+                        {order.items.map((item, index) => (
+                          <div key={index} className="flex justify-between text-sm items-center">
+                            <span className="text-gray-700 flex items-center gap-2">
+                              <span className="font-bold text-gray-900 bg-gray-200 px-1.5 rounded min-w-[24px] text-center">{item.quantity}</span>
+                              <span>{item.name}</span>
+                            </span>
+                            <span className="text-gray-400 text-xs">${item.price * item.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="bg-gray-50 p-3 rounded mb-4 text-sm border border-gray-100">
-                      <div className="flex items-center mb-1">
-                          <span className="font-medium text-gray-900 text-base">{order.customerName}</span>
-                      </div>
-                      <div className="flex items-center mb-1">
-                          <span className="text-gray-600 font-mono tracking-wider">{order.customerPhone}</span>
-                      </div>
-                      {order.customerNote && (
-                        <div className="mt-2 text-gray-700 bg-yellow-50 p-2 rounded border border-yellow-100 text-xs font-medium">
-                          備註: {order.customerNote}
+                    {/* 底部操作按鈕區 - 兩段式設計防止誤觸 */}
+                    <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+                      {isMenuOpen ? (
+                        // --- 管理選單 (取消/刪除) ---
+                        <div className="space-y-3 animate-fade-in">
+                          <div className="flex items-center justify-between text-xs text-red-500 font-bold mb-1">
+                            <span>⚠️ 管理選項</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* 只有未結案的訂單才顯示取消 */}
+                            {order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.SERVED && (
+                              <button 
+                                onClick={() => { 
+                                  if(window.confirm('確定要取消此訂單嗎？')) {
+                                    updateOrderStatus(order.id!, OrderStatus.CANCELLED); 
+                                    setMenuOpenId(null); 
+                                  }
+                                }}
+                                className="col-span-1 bg-orange-50 text-orange-700 border border-orange-200 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors"
+                              >
+                                🚫 取消訂單
+                              </button>
+                            )}
+                            
+                            <button 
+                              onClick={() => { deleteOrder(order.id!); setMenuOpenId(null); }}
+                              className={`${(order.status === OrderStatus.CANCELLED || order.status === OrderStatus.SERVED) ? 'col-span-2' : 'col-span-1'} bg-white text-red-600 border border-red-200 py-2 rounded-lg text-sm font-bold hover:bg-red-50 hover:border-red-300 transition-colors`}
+                            >
+                              🗑️ 永久刪除
+                            </button>
+                          </div>
+
+                          <button 
+                            onClick={() => setMenuOpenId(null)}
+                            className="w-full bg-gray-200 text-gray-600 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition-colors"
+                          >
+                            ↩️ 返回
+                          </button>
+                        </div>
+                      ) : (
+                        // --- 主要操作區 ---
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            {order.status === OrderStatus.PENDING && (
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.PREPARING)} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-red-700 shadow-sm active:scale-[0.98] animate-pulse">
+                                🔥 接單 / 開始製作
+                              </button>
+                            )}
+                            {order.status === OrderStatus.PREPARING && (
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.COMPLETED)} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-blue-700 shadow-sm active:scale-[0.98]">
+                                ✅ 製作完成 / 通知取餐
+                              </button>
+                            )}
+                            {order.status === OrderStatus.COMPLETED && (
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.SERVED)} className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-green-700 shadow-sm active:scale-[0.98]">
+                                🎉 已送餐 / 結案
+                              </button>
+                            )}
+                            
+                            {/* 對於已結束的訂單，顯示靜態狀態條 */}
+                            {(order.status === OrderStatus.SERVED || order.status === OrderStatus.CANCELLED) && (
+                              <div className="w-full py-3 text-center text-gray-400 text-sm font-medium border border-gray-200 rounded-lg bg-gray-50">
+                                {order.status === OrderStatus.SERVED ? '✅ 訂單已完成' : '🚫 訂單已取消'}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 更多選項按鈕 (齒輪) */}
+                          <button 
+                            onClick={() => setMenuOpenId(order.id!)}
+                            className="w-12 flex items-center justify-center bg-white border border-gray-200 text-gray-400 rounded-lg hover:bg-gray-50 hover:text-gray-600 hover:border-gray-300 transition-colors"
+                            title="管理選項"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                         </div>
                       )}
                     </div>
-
-                    <div className="space-y-2 border-t border-gray-100 pt-3">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span className="text-gray-700">
-                            <span className="font-bold mr-2 text-gray-900 text-base">{item.quantity}x</span>
-                            {item.name}
-                          </span>
-                          <span className="text-gray-500">${item.price * item.quantity}</span>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-                        <span className="text-xs text-gray-500">總金額</span>
-                        <span className="text-xl font-bold text-red-600">${order.totalAmount}</span>
-                    </div>
                   </div>
-
-                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 grid grid-cols-2 gap-2">
-                    {order.status === OrderStatus.PENDING && (
-                      <button onClick={() => updateOrderStatus(order.id!, OrderStatus.PREPARING)} className="col-span-2 w-full bg-red-600 text-white font-bold py-2.5 rounded text-sm hover:bg-red-700 shadow-md transition-colors animate-pulse">接單 / 開始製作</button>
-                    )}
-                    {order.status === OrderStatus.PREPARING && (
-                      <button onClick={() => updateOrderStatus(order.id!, OrderStatus.COMPLETED)} className="col-span-2 w-full bg-green-600 text-white font-bold py-2.5 rounded text-sm hover:bg-green-700 shadow-md transition-colors">完成訂單</button>
-                    )}
-                    <button onClick={() => updateOrderStatus(order.id!, OrderStatus.CANCELLED)} className="w-full border bg-white text-gray-700 hover:bg-gray-50 py-1.5 rounded text-xs transition-colors">取消</button>
-                    <button onClick={() => deleteOrder(order.id!)} className="w-full border border-gray-200 bg-white text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 py-1.5 rounded text-xs transition-colors">刪除</button>
+                );
+              })}
+              
+              {/* 無訂單時的提示 */}
+              {filteredOrders.length === 0 && (
+                <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-400 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
+                  <div className="bg-gray-100 p-4 rounded-full mb-3">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   </div>
+                  <p className="font-medium text-lg">
+                    {orderFilter === 'all' ? '目前沒有任何訂單' :
+                     orderFilter === 'pending' ? '目前沒有新訂單' : 
+                     orderFilter === 'preparing' ? '目前沒有製作中的餐點' :
+                     orderFilter === 'completed' ? '目前沒有待取餐的訂單' : '沒有歷史記錄'}
+                  </p>
                 </div>
-              ))}
-              {orders.length === 0 && <div className="col-span-full text-center py-12 text-gray-400 bg-gray-50 border-2 border-dashed rounded-lg">暫無訂單</div>}
+              )}
             </div>
           )}
         </>
@@ -334,7 +507,7 @@ const AdminDashboard: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900">菜單品項管理</h1>
             <button 
               onClick={() => { setEditingProduct({ id: '', name: '', price: 0, image: '', category: '', isAvailable: true }); setIsModalOpen(true); }}
-              className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-700"
+              className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-700 shadow-sm"
             >
               + 新增商品
             </button>
@@ -370,7 +543,7 @@ const AdminDashboard: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                          <button 
                            onClick={() => toggleProductAvailability(product)}
-                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.isAvailable !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors ${product.isAvailable !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
                          >
                            {product.isAvailable !== false ? '上架中' : '已下架'}
                          </button>
@@ -442,8 +615,8 @@ const AdminDashboard: React.FC = () => {
 
       {/* --- Modal for Add/Edit Product --- */}
       {isModalOpen && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-scale-up">
             <h3 className="text-lg font-bold text-gray-900 mb-4">{editingProduct.id ? '編輯商品' : '新增商品'}</h3>
             <form onSubmit={handleSaveProduct} className="space-y-4">
               <div>
