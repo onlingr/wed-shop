@@ -2,15 +2,19 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// TODO: 請在此處填入您的 Firebase 配置金鑰
-// 這些資訊可以在 Firebase Console -> Project Settings 找到
+// 使用 Vite 的環境變數 (Vercel 部署時的最佳實踐)
+// 如果環境變數未設定，則使用字串中的預設值 (開發時方便)
+// 為了解決 TypeScript 錯誤 "Property 'env' does not exist on type 'ImportMeta'"，將 import.meta 轉型為 any
+const env = (import.meta as any).env || {};
+
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCFE2djuA7G8zkHGgn7zkTjU1ASmSLM-7s",
+  authDomain: "online-ordering-system-1.firebaseapp.com",
+  projectId: "online-ordering-system-1",
+  storageBucket: "online-ordering-system-1.firebasestorage.app",
+  messagingSenderId: "864822287644",
+  appId: "1:864822287644:web:da8743699e96c5c86beed9",
+  measurementId: "G-PJP63TFBNP"
 };
 
 // 初始化 Firebase
