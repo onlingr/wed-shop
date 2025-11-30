@@ -88,7 +88,24 @@ const AdminDashboard: React.FC = () => {
                 </span>
               </div>
 
-              <div className="space-y-3">
+              {/* 顧客資訊區塊 - 新增 */}
+              <div className="bg-gray-50 p-3 rounded mb-4 text-sm border border-gray-100">
+                <div className="flex items-center mb-1">
+                    <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span className="font-medium text-gray-900">{order.customerName}</span>
+                </div>
+                <div className="flex items-center mb-1">
+                    <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                    <span className="text-gray-600 font-mono">{order.customerPhone}</span>
+                </div>
+                {order.customerNote && (
+                  <div className="mt-2 text-gray-500 italic bg-white p-2 rounded border border-gray-100 text-xs">
+                    備註: {order.customerNote}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border-t border-gray-100 pt-3">
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm">
                     <span className="text-gray-700">
@@ -150,5 +167,4 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-// 必須使用 default export 才能配合 React.lazy
 export default AdminDashboard;

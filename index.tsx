@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import App from './App';
 
 const rootElement = document.getElementById('root');
@@ -11,9 +11,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* 改用 BrowserRouter 以獲得乾淨的網址 (需要伺服器 Rewrite 支援，如 Vercel) */}
-    <BrowserRouter>
+    {/* 改回 HashRouter 以確保在預覽環境與靜態主機(如 GitHub Pages)能正常運作 */}
+    {/* 若之後確定部署環境(如 Vercel)支援 Rewrite，可再改回 BrowserRouter */}
+    <HashRouter>
       <App />
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>
 );

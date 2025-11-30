@@ -27,5 +27,9 @@ export interface Order {
   totalAmount: number;
   status: OrderStatus;
   createdAt: any; // Firestore Timestamp
-  customerNote?: string;
+  
+  // 新增顧客資訊欄位
+  customerName: string;  // 顧客姓名 (必填)
+  customerPhone: string; // 顧客電話 (必填)
+  customerNote?: string; // 備註 (選填)
 }
