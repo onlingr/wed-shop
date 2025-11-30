@@ -16,12 +16,13 @@ const getEnv = () => {
 const env = getEnv();
 
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: env.VITE_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
-  appId: env.VITE_FIREBASE_APP_ID || "YOUR_APP_ID"
+  apiKey: "AIzaSyCFE2djuA7G8zkHGgn7zkTjU1ASmSLM-7s",
+  authDomain: "online-ordering-system-1.firebaseapp.com",
+  projectId: "online-ordering-system-1",
+  storageBucket: "online-ordering-system-1.firebasestorage.app",
+  messagingSenderId: "864822287644",
+  appId: "1:864822287644:web:da8743699e96c5c86beed9",
+  measurementId: "G-PJP63TFBNP"
 };
 
 // 初始化 Firebase
