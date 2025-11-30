@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { collection, serverTimestamp, onSnapshot, doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
-import { MENU_ITEMS } from '../constants';
-import { OrderStatus } from '../types';
+import { MenuItem, OrderStatus } from '../types';
 import { useCart } from '../contexts/CartContext';
+import Loading from '../components/Loading';
 
 const Home: React.FC = () => {
   const { 
@@ -11,6 +12,11 @@ const Home: React.FC = () => {
     isCheckoutOpen, openCheckout, closeCheckout 
   } = useCart();
   
+  const [products, setProducts] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // 新增錯誤狀態
+  const [storeOpen, setStoreOpen] = useState(true);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // 顧客資料狀態
@@ -22,20 +28,62 @@ const Home: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('全部');
 
-  // 自動從 MENU_ITEMS 提取所有分類，並加上 '全部'
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(MENU_ITEMS.map(item => item.category)));
-    return ['全部', ...uniqueCategories];
+  // 初始化：監聽商品與商店設定
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    
+    // 1. 監聽商品列表
+    const unsubscribeProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as MenuItem));
+      // 只顯示上架中的商品
+      setProducts(items.filter(item => item.isAvailable !== false));
+      setLoading(false);
+    }, (err) => {
+      console.error("讀取商品失敗:", err);
+      // 若是權限錯誤，顯示特定訊息
+      if (err.code === 'permission-denied') {
+        setError("無法讀取菜單：權限不足。請確認 Firebase Security Rules 設定是否正確。");
+      } else {
+        setError("讀取菜單失敗，請檢查網路連線。");
+      }
+      setLoading(false);
+    });
+
+    // 2. 監聽商店營業狀態 (settings/store)
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'store'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStoreOpen(data.isOpen !== false); // 預設 true
+      }
+    }, (err) => {
+      console.error("讀取商店設定失敗:", err);
+      // 設定讀取失敗不影響主畫面，但記錄錯誤
+    });
+
+    return () => {
+      unsubscribeProducts();
+      unsubscribeSettings();
+    };
   }, []);
+
+  // 自動從 products 提取所有分類，並加上 '全部'
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(products.map(item => item.category)));
+    return ['全部', ...uniqueCategories];
+  }, [products]);
 
   // 根據搜尋關鍵字與分類過濾商品
   const filteredItems = useMemo(() => {
-    return MENU_ITEMS.filter(item => {
+    return products.filter(item => {
       const matchesCategory = selectedCategory === '全部' || item.category === selectedCategory;
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, products]);
 
   // 開啟結帳視窗
   const handleOpenCheckout = () => {
@@ -43,23 +91,52 @@ const Home: React.FC = () => {
     openCheckout();
   };
 
-  // 送出訂單到 Firestore
+  // 送出訂單到 Firestore (使用 Transaction 確保流水號)
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
     
+    if (!storeOpen) {
+      alert("抱歉，目前商店休息中，無法接收新訂單。");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, "orders"), {
-        items: cart,
-        totalAmount,
-        status: OrderStatus.PENDING,
-        createdAt: serverTimestamp(),
-        customerName,   // 必填
-        customerPhone,  // 必填
-        customerNote: customerNote || '',   // 選填
+      await runTransaction(db, async (transaction) => {
+        // 1. 取得今日日期字串 (YYYY-MM-DD)，作為 counter 的 ID
+        // 使用當地時間，避免時區問題導致隔天還沒重置
+        const today = new Date();
+        const dateStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        
+        const counterRef = doc(db, 'counters', dateStr);
+        const counterDoc = await transaction.get(counterRef);
+        
+        let newOrderNumber = 1;
+        if (counterDoc.exists()) {
+          const currentCount = counterDoc.data().count || 0;
+          newOrderNumber = currentCount + 1;
+          transaction.update(counterRef, { count: newOrderNumber });
+        } else {
+          // 今天第一筆
+          transaction.set(counterRef, { count: 1 });
+        }
+
+        // 2. 建立新訂單
+        const newOrderRef = doc(collection(db, "orders"));
+        transaction.set(newOrderRef, {
+          orderNumber: newOrderNumber, // 寫入流水號
+          items: cart,
+          totalAmount,
+          status: OrderStatus.PENDING,
+          createdAt: serverTimestamp(),
+          customerName,   // 必填
+          customerPhone,  // 必填
+          customerNote: customerNote || '',   // 選填
+        });
       });
+
       alert("訂單已送出！我們會盡快為您準備。");
       clearCart();
       closeCheckout();
@@ -67,13 +144,59 @@ const Home: React.FC = () => {
       setCustomerName('');
       setCustomerPhone('');
       setCustomerNote('');
-    } catch (error) {
+    } catch (error: any) {
       console.error("送出訂單失敗:", error);
-      alert("送出失敗，請稍後再試。");
+      if (error.code === 'permission-denied') {
+        alert("送出失敗：權限不足。請確認 Firestore Rules 是否允許寫入 'counters' 與 'orders'。");
+      } else {
+        alert("送出失敗，請稍後再試。");
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) return <Loading />;
+
+  // 錯誤顯示畫面
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-red-100">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">發生錯誤</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-brand-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-brand-700 transition-colors"
+          >
+            重新整理
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 商店休息中畫面
+  if (!storeOpen) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">本店休息中</h2>
+          <p className="text-gray-500">抱歉，目前暫停接單。<br/>請稍後再回來查看。</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24 relative min-h-screen bg-gray-50">
@@ -143,7 +266,8 @@ const Home: React.FC = () => {
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
-                      <span className="text-lg font-bold text-brand-600">${item.price}</span>
+                      {/* 價格改為紅色 */}
+                      <span className="text-lg font-bold text-red-600">${item.price}</span>
                     </div>
                     
                     {/* 根據數量顯示不同按鈕狀態 */}
@@ -155,7 +279,8 @@ const Home: React.FC = () => {
                         >
                           -
                         </button>
-                        <span className="font-bold text-brand-800 text-lg w-8 text-center">{quantity}</span>
+                        {/* 數量改為紅色 */}
+                        <span className="font-bold text-red-600 text-lg w-8 text-center">{quantity}</span>
                         <button 
                           onClick={() => addToCart(item)}
                           className="w-10 h-9 flex items-center justify-center bg-brand-600 rounded shadow-sm text-white font-bold hover:bg-brand-700 active:scale-95 transition-all"
@@ -182,18 +307,31 @@ const Home: React.FC = () => {
         ) : (
           <div className="text-center py-20">
             <div className="bg-gray-100 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-4">
-              <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              {products.length === 0 ? (
+                // 若商品列表為空，提示店長去後台設定
+                <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
             </div>
-            <h3 className="text-lg font-medium text-gray-900">找不到相關餐點</h3>
-            <p className="text-gray-500 mt-1">請嘗試不同的關鍵字或分類</p>
-            <button 
-              onClick={() => {setSearchTerm(''); setSelectedCategory('全部');}}
-              className="mt-4 text-brand-600 font-medium hover:text-brand-700"
-            >
-              清除所有條件
-            </button>
+            <h3 className="text-lg font-medium text-gray-900">
+              {products.length === 0 ? "目前尚未建立菜單" : "找不到相關餐點"}
+            </h3>
+            <p className="text-gray-500 mt-1">
+               {products.length === 0 ? "請聯絡管理員至後台新增商品" : "請嘗試不同的關鍵字或分類"}
+            </p>
+            {products.length > 0 && (
+              <button 
+                onClick={() => {setSearchTerm(''); setSelectedCategory('全部');}}
+                className="mt-4 text-brand-600 font-medium hover:text-brand-700"
+              >
+                清除所有條件
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -206,7 +344,8 @@ const Home: React.FC = () => {
               <span className="text-gray-500 text-xs font-medium">總計 {totalItems} 項餐點</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-sm font-bold text-gray-900">NT$</span>
-                <span className="text-2xl font-extrabold text-brand-600">{totalAmount}</span>
+                {/* 總金額改為紅色 */}
+                <span className="text-2xl font-extrabold text-red-600">{totalAmount}</span>
               </div>
             </div>
             
@@ -248,7 +387,10 @@ const Home: React.FC = () => {
                     <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100">
                        <div className="flex-1">
                          <div className="font-bold text-gray-800">{item.name}</div>
-                         <div className="text-sm text-gray-500">${item.price} / 份</div>
+                         <div className="text-sm text-gray-500">
+                           {/* 列表價格改為紅色 */}
+                           <span className="text-red-600 font-bold">${item.price}</span> / 份
+                         </div>
                        </div>
                        <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 px-2 py-1 ml-4 shadow-sm">
                           <button 
@@ -257,7 +399,8 @@ const Home: React.FC = () => {
                           >
                             -
                           </button>
-                          <span className="font-bold text-gray-800 w-4 text-center">{item.quantity}</span>
+                          {/* 列表數量改為紅色 */}
+                          <span className="font-bold text-red-600 w-4 text-center">{item.quantity}</span>
                           <button 
                             onClick={() => addToCart(item)}
                             className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-green-600 transition-colors"
@@ -271,7 +414,8 @@ const Home: React.FC = () => {
                 {/* 總結列 */}
                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                    <span className="font-bold text-gray-600">總金額</span>
-                   <span className="font-extrabold text-2xl text-brand-600">${totalAmount}</span>
+                   {/* Modal 總金額改為紅色 */}
+                   <span className="font-extrabold text-2xl text-red-600">${totalAmount}</span>
                 </div>
               </div>
 

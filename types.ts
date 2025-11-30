@@ -1,3 +1,4 @@
+
 // 定義菜單項目介面
 export interface MenuItem {
   id: string;
@@ -5,6 +6,7 @@ export interface MenuItem {
   price: number;
   image: string;
   category: string;
+  isAvailable?: boolean; // 是否上架中
 }
 
 // 定義購物車項目介面
@@ -23,6 +25,7 @@ export enum OrderStatus {
 // 定義 Firestore 中的訂單結構
 export interface Order {
   id?: string;
+  orderNumber?: number; // 每日流水號 (例如: 1, 2, 3...)
   items: CartItem[];
   totalAmount: number;
   status: OrderStatus;
@@ -32,4 +35,10 @@ export interface Order {
   customerName: string;  // 顧客姓名 (必填)
   customerPhone: string; // 顧客電話 (必填)
   customerNote?: string; // 備註 (選填)
+}
+
+// 商店全域設定
+export interface Settings {
+  isOpen: boolean; // 是否營業中
+  storeName?: string;
 }
