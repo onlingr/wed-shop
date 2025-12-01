@@ -28,6 +28,10 @@ const AdminDashboard: React.FC = () => {
   const [menuLoading, setMenuLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<MenuItem | null>(null); // For Add/Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 新增：菜單分類篩選狀態
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState('全部');
+  // 新增：控制圖片是否啟用
+  const [useImage, setUseImage] = useState(true);
 
   // Settings State
   const [storeOpen, setStoreOpen] = useState(true);
@@ -107,11 +111,11 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const originalTitle = document.title;
     if (pendingCount > 0) {
-      document.title = `(${pendingCount}) 美味點餐 - 管理後台`;
+      document.title = `(${pendingCount}) 雞排本色-竹東店 - 管理後台`;
     } else {
-      document.title = '美味點餐 - 管理後台';
+      document.title = '雞排本色-竹東店 - 管理後台';
     }
-    return () => { document.title = '美味點餐 - 遠端點餐系統'; };
+    return () => { document.title = '雞排本色-竹東店 - 遠端點餐系統'; };
   }, [pendingCount]);
 
   // --- Real-time Products ---
@@ -133,6 +137,17 @@ const AdminDashboard: React.FC = () => {
     });
     return () => unsubscribe();
   }, [activeTab]);
+
+  // 計算菜單分類標籤
+  const menuCategories = useMemo(() => {
+    const unique = Array.from(new Set(products.map(p => p.category)));
+    return ['全部', ...unique];
+  }, [products]);
+
+  // 根據分類篩選商品
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => selectedMenuCategory === '全部' || p.category === selectedMenuCategory);
+  }, [products, selectedMenuCategory]);
 
   // --- Real-time Settings ---
   useEffect(() => {
@@ -188,7 +203,8 @@ const AdminDashboard: React.FC = () => {
         name: editingProduct.name,
         price: Number(editingProduct.price),
         category: editingProduct.category,
-        image: editingProduct.image,
+        image: useImage ? editingProduct.image : '', // 若關閉圖片，則儲存空字串
+        description: editingProduct.description || '', // 儲存說明
         isAvailable: editingProduct.isAvailable ?? true
       };
 
@@ -221,6 +237,7 @@ const AdminDashboard: React.FC = () => {
             price: item.price,
             image: item.image,
             category: item.category,
+            description: '',
             isAvailable: true
         });
       }
@@ -322,7 +339,7 @@ const AdminDashboard: React.FC = () => {
           </div>
           
           {ordersLoading ? <Loading /> : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {filteredOrders.map((order) => {
                 const isMenuOpen = menuOpenId === order.id;
                 
@@ -341,9 +358,9 @@ const AdminDashboard: React.FC = () => {
                       }
                     `}
                   >
-                    <div className="p-4 flex-grow">
+                    <div className="p-2 sm:p-3 flex-grow">
                       {/* 卡片頂部資訊列 */}
-                      <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100 border-dashed">
+                      <div className="flex justify-between items-start mb-2 pb-2 border-b border-gray-100 border-dashed">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <span className="text-lg font-black text-gray-800 font-mono bg-gray-100 px-2 py-1 rounded">
@@ -366,7 +383,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
 
                       {/* 顧客資料 */}
-                      <div className="bg-gray-50 p-3 rounded mb-4 text-sm border border-gray-100 flex flex-col gap-1">
+                      <div className="bg-gray-50 p-2 rounded mb-2 text-sm border border-gray-100 flex flex-col gap-1">
                         <div className="flex justify-between">
                           <span className="font-bold text-gray-800">{order.customerName}</span>
                           <a href={`tel:${order.customerPhone}`} className="text-blue-600 hover:underline font-mono">{order.customerPhone}</a>
@@ -380,7 +397,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
 
                       {/* 餐點清單 */}
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {order.items.map((item, index) => (
                           <div key={index} className="flex justify-between text-sm items-center">
                             <span className="text-gray-700 flex items-center gap-2">
@@ -394,15 +411,15 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* 底部操作按鈕區 - 兩段式設計防止誤觸 */}
-                    <div className="bg-gray-50 px-4 py-3 border-t border-gray-100">
+                    <div className="bg-gray-50 px-3 py-2 border-t border-gray-100">
                       {isMenuOpen ? (
                         // --- 管理選單 (取消/刪除) ---
-                        <div className="space-y-3 animate-fade-in">
+                        <div className="space-y-2 animate-fade-in">
                           <div className="flex items-center justify-between text-xs text-red-500 font-bold mb-1">
                             <span>⚠️ 管理選項</span>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-2 gap-2">
                             {/* 只有未結案的訂單才顯示取消 */}
                             {order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.SERVED && (
                               <button 
@@ -414,7 +431,7 @@ const AdminDashboard: React.FC = () => {
                                 }}
                                 className="col-span-1 bg-orange-50 text-orange-700 border border-orange-200 py-2 rounded-lg text-sm font-bold hover:bg-orange-100 transition-colors"
                               >
-                                🚫 取消訂單
+                                🚫 取消
                               </button>
                             )}
                             
@@ -422,7 +439,7 @@ const AdminDashboard: React.FC = () => {
                               onClick={() => { deleteOrder(order.id!); setMenuOpenId(null); }}
                               className={`${(order.status === OrderStatus.CANCELLED || order.status === OrderStatus.SERVED) ? 'col-span-2' : 'col-span-1'} bg-white text-red-600 border border-red-200 py-2 rounded-lg text-sm font-bold hover:bg-red-50 hover:border-red-300 transition-colors`}
                             >
-                              🗑️ 永久刪除
+                              🗑️ 刪除
                             </button>
                           </div>
 
@@ -438,24 +455,24 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex gap-2">
                           <div className="flex-1">
                             {order.status === OrderStatus.PENDING && (
-                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.PREPARING)} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-red-700 shadow-sm active:scale-[0.98] animate-pulse">
-                                🔥 接單 / 開始製作
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.PREPARING)} className="w-full bg-red-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-red-700 shadow-sm active:scale-[0.98] animate-pulse">
+                                🔥 接單
                               </button>
                             )}
                             {order.status === OrderStatus.PREPARING && (
-                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.COMPLETED)} className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-blue-700 shadow-sm active:scale-[0.98]">
-                                ✅ 製作完成 / 通知取餐
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.COMPLETED)} className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-blue-700 shadow-sm active:scale-[0.98]">
+                                ✅ 完成
                               </button>
                             )}
                             {order.status === OrderStatus.COMPLETED && (
-                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.SERVED)} className="w-full bg-green-600 text-white font-bold py-3 rounded-lg text-sm hover:bg-green-700 shadow-sm active:scale-[0.98]">
-                                🎉 已送餐 / 結案
+                              <button onClick={() => updateOrderStatus(order.id!, OrderStatus.SERVED)} className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-green-700 shadow-sm active:scale-[0.98]">
+                                🎉 結案
                               </button>
                             )}
                             
                             {/* 對於已結束的訂單，顯示靜態狀態條 */}
                             {(order.status === OrderStatus.SERVED || order.status === OrderStatus.CANCELLED) && (
-                              <div className="w-full py-3 text-center text-gray-400 text-sm font-medium border border-gray-200 rounded-lg bg-gray-50">
+                              <div className="w-full py-2.5 text-center text-gray-400 text-sm font-medium border border-gray-200 rounded-lg bg-gray-50">
                                 {order.status === OrderStatus.SERVED ? '✅ 訂單已完成' : '🚫 訂單已取消'}
                               </div>
                             )}
@@ -464,10 +481,10 @@ const AdminDashboard: React.FC = () => {
                           {/* 更多選項按鈕 (齒輪) */}
                           <button 
                             onClick={() => setMenuOpenId(order.id!)}
-                            className="w-12 flex items-center justify-center bg-white border border-gray-200 text-gray-400 rounded-lg hover:bg-gray-50 hover:text-gray-600 hover:border-gray-300 transition-colors"
+                            className="w-10 flex items-center justify-center bg-white border border-gray-200 text-gray-400 rounded-lg hover:bg-gray-50 hover:text-gray-600 hover:border-gray-300 transition-colors"
                             title="管理選項"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
@@ -506,60 +523,140 @@ const AdminDashboard: React.FC = () => {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">菜單品項管理</h1>
             <button 
-              onClick={() => { setEditingProduct({ id: '', name: '', price: 0, image: '', category: '', isAvailable: true }); setIsModalOpen(true); }}
+              onClick={() => { 
+                setEditingProduct({ id: '', name: '', price: 0, image: '', category: '', description: '', isAvailable: true }); 
+                setUseImage(true); 
+                setIsModalOpen(true); 
+              }}
               className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-700 shadow-sm"
             >
               + 新增商品
             </button>
           </div>
 
+          {/* 新增：菜單分類標籤 */}
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar">
+            {menuCategories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedMenuCategory(category)}
+                className={`
+                  whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                  ${selectedMenuCategory === category 
+                    ? 'bg-brand-600 text-white shadow-md' 
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'}
+                `}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
           {menuLoading ? <Loading /> : (
-            <div className="bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">商品</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分類</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">價格</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0">
-                            <img className="h-10 w-10 rounded object-cover" src={product.image} alt="" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                          </div>
+            <>
+              {/* Mobile View: Cards (Visible on small screens) */}
+              <div className="block sm:hidden space-y-4">
+                {filteredProducts.map((product) => (
+                  <div key={product.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex gap-4">
+                    <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                       {product.image ? (
+                          <img className="w-full h-full object-cover" src={product.image} alt={product.name} />
+                       ) : (
+                          <svg className="h-10 w-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                       )}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start">
+                           <h3 className="text-lg font-bold text-gray-900 truncate">{product.name}</h3>
+                           <span className="text-red-600 font-bold">${product.price}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-sm text-gray-500 mt-1">{product.category}</p>
+                      </div>
+                      
+                      <div className="flex justify-between items-end mt-3">
                          <button 
                            onClick={() => toggleProductAvailability(product)}
-                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors ${product.isAvailable !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                           className={`px-3 py-1 text-xs font-bold rounded-full border transition-colors ${product.isAvailable !== false ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
                          >
                            {product.isAvailable !== false ? '上架中' : '已下架'}
                          </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        <button onClick={() => { setEditingProduct(product); setIsModalOpen(true); }} className="text-brand-600 hover:text-brand-900">編輯</button>
-                        <button onClick={() => handleDeleteProduct(product.id)} className="text-red-600 hover:text-red-900">刪除</button>
-                      </td>
+                         <div className="flex gap-3">
+                            <button onClick={() => { setEditingProduct(product); setUseImage(!!product.image); setIsModalOpen(true); }} className="p-1 text-gray-500 hover:text-brand-600 hover:bg-gray-100 rounded-full">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button onClick={() => handleDeleteProduct(product.id)} className="p-1 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {filteredProducts.length === 0 && (
+                   <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                      {products.length === 0 ? "目前沒有商品，請點擊上方按鈕新增。" : "此分類下沒有商品。"}
+                   </div>
+                )}
+              </div>
+
+              {/* Desktop View: Table (Hidden on small screens) */}
+              <div className="hidden sm:block bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">商品</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分類</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">價格</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                     </tr>
-                  ))}
-                  {products.length === 0 && (
-                    <tr><td colSpan={5} className="px-6 py-4 text-center text-gray-500">目前沒有商品，請新增或從設定匯入。</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredProducts.map((product) => (
+                      <tr key={product.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden flex items-center justify-center">
+                              {product.image ? (
+                                <img className="h-10 w-10 object-cover" src={product.image} alt="" />
+                              ) : (
+                                <svg className="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                              {product.description && <div className="text-xs text-gray-500 max-w-[200px] truncate">{product.description}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.price}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                           <button 
+                             onClick={() => toggleProductAvailability(product)}
+                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition-colors ${product.isAvailable !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                           >
+                             {product.isAvailable !== false ? '上架中' : '已下架'}
+                           </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                          <button onClick={() => { setEditingProduct(product); setUseImage(!!product.image); setIsModalOpen(true); }} className="text-brand-600 hover:text-brand-900">編輯</button>
+                          <button onClick={() => handleDeleteProduct(product.id)} className="text-red-600 hover:text-red-900">刪除</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredProducts.length === 0 && (
+                      <tr><td colSpan={5} className="px-6 py-4 text-center text-gray-500">{products.length === 0 ? "目前沒有商品，請新增或從設定匯入。" : "此分類下沒有商品。"}</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </>
       )}
@@ -613,41 +710,172 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* --- Modal for Add/Edit Product --- */}
+      {/* --- Modal for Add/Edit Product (Redesigned) --- */}
       {isModalOpen && editingProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-scale-up">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">{editingProduct.id ? '編輯商品' : '新增商品'}</h3>
-            <form onSubmit={handleSaveProduct} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">商品名稱</label>
-                <input type="text" required value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-500 focus:border-brand-500" />
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 animate-scale-up overflow-y-auto max-h-[90vh]">
+            <h3 className="text-xl font-bold text-gray-900 mb-6 border-b pb-4">
+              {editingProduct.id ? '編輯商品' : '新增商品'}
+            </h3>
+            
+            <form onSubmit={handleSaveProduct} className="space-y-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column: Basic Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">商品名稱 <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={editingProduct.name} 
+                      onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow"
+                      placeholder="例如：紅燒牛肉麵"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">價格 <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-500">$</span>
+                          <input 
+                              type="number" 
+                              required 
+                              min="0"
+                              value={editingProduct.price} 
+                              onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} 
+                              className="w-full pl-7 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">分類 <span className="text-red-500">*</span></label>
+                        <input 
+                          type="text" 
+                          required 
+                          value={editingProduct.category} 
+                          onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} 
+                          list="categories" 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                          placeholder="例如：主食"
+                        />
+                        <datalist id="categories">
+                           <option value="主食" />
+                           <option value="飲品" />
+                           <option value="小菜" />
+                        </datalist>
+                      </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="block text-sm font-bold text-gray-700">商品圖片</label>
+                    <div className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => setUseImage(!useImage)}
+                          className={`
+                            relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500
+                            ${useImage ? 'bg-brand-600' : 'bg-gray-200'}
+                          `}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200 ${useImage ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                        <span className="ml-2 text-xs text-gray-500">{useImage ? '啟用' : '停用'}</span>
+                    </div>
+                  </div>
+
+                  {useImage && (
+                    <div className="animate-fade-in">
+                        <label className="block text-sm font-bold text-gray-700 mb-1">圖片網址 <span className="text-red-500">*</span></label>
+                        <input 
+                            type="url" 
+                            required={useImage} 
+                            value={editingProduct.image} 
+                            onChange={e => setEditingProduct({...editingProduct, image: e.target.value})} 
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">請輸入公開的圖片連結 (建議比例 4:3)</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Image Preview */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-700">圖片預覽</label>
+                  {useImage ? (
+                    <div className="w-full aspect-[4/3] bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden relative group animate-fade-in">
+                        {editingProduct.image ? (
+                            <img 
+                                src={editingProduct.image} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Invalid+Image'; }}
+                            />
+                        ) : (
+                            <div className="text-gray-400 text-center p-4">
+                                <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-sm mt-2 block">輸入網址後自動預覽</span>
+                            </div>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-[4/3] bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-400 animate-fade-in">
+                        <div className="text-center">
+                            <svg className="mx-auto h-10 w-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                            <span className="text-sm mt-1 block">未啟用圖片</span>
+                        </div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Bottom Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">價格</label>
-                <input type="number" required value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-500 focus:border-brand-500" />
+                  <label className="block text-sm font-bold text-gray-700 mb-1">商品說明 (選填)</label>
+                  <textarea 
+                      rows={3}
+                      value={editingProduct.description || ''} 
+                      onChange={e => setEditingProduct({...editingProduct, description: e.target.value})} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm"
+                      placeholder="介紹一下這道餐點的特色，或標註過敏原資訊..."
+                  />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">分類</label>
-                <input type="text" required value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} list="categories" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-500 focus:border-brand-500" />
-                <datalist id="categories">
-                   <option value="主食" />
-                   <option value="飲品" />
-                   <option value="小菜" />
-                </datalist>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">圖片網址</label>
-                <input type="text" required value={editingProduct.image} onChange={e => setEditingProduct({...editingProduct, image: e.target.value})} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-brand-500 focus:border-brand-500" />
-              </div>
-              <div className="flex items-center mt-2">
-                 <input id="isAvailable" type="checkbox" checked={editingProduct.isAvailable !== false} onChange={e => setEditingProduct({...editingProduct, isAvailable: e.target.checked})} className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 rounded" />
-                 <label htmlFor="isAvailable" className="ml-2 block text-sm text-gray-900">立即上架</label>
+
+              <div className="flex items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+                 <input 
+                  id="isAvailable" 
+                  type="checkbox" 
+                  checked={editingProduct.isAvailable !== false} 
+                  onChange={e => setEditingProduct({...editingProduct, isAvailable: e.target.checked})} 
+                  className="h-5 w-5 text-brand-600 focus:ring-brand-500 border-gray-300 rounded cursor-pointer" 
+                 />
+                 <div className="ml-3">
+                   <label htmlFor="isAvailable" className="text-sm font-bold text-gray-900 cursor-pointer">立即上架販售</label>
+                   <p className="text-xs text-gray-500">若取消勾選，此商品將不會顯示在前台菜單中。</p>
+                 </div>
               </div>
               
-              <div className="flex justify-end space-x-3 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">取消</button>
-                <button type="submit" className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700">儲存</button>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-bold hover:bg-brand-700 shadow-md shadow-brand-200 transition-all active:scale-[0.98]"
+                >
+                  儲存變更
+                </button>
               </div>
             </form>
           </div>

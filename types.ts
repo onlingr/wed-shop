@@ -6,6 +6,7 @@ export interface MenuItem {
   price: number;
   image: string;
   category: string;
+  description?: string; // 新增：商品說明
   isAvailable?: boolean; // 是否上架中
 }
 

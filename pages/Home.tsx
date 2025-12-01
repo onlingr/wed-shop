@@ -248,57 +248,77 @@ const Home: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         {filteredItems.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          /* 修改: 改為 grid-cols-1 (單排顯示) 配合 Flex 排版 */
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {filteredItems.map((item) => {
               // 檢查此商品是否已在購物車中
               const cartItem = cart.find(c => c.id === item.id);
               const quantity = cartItem ? cartItem.quantity : 0;
 
               return (
-                <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 border border-gray-100 group">
-                  <div className="relative overflow-hidden">
-                    <img src={item.image} alt={item.name} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-sm text-gray-700">
+                <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 border border-gray-100 group flex flex-row md:flex-col h-28 md:h-auto">
+                  {/* Image Section - Mobile: Compact Fixed width (112px), Desktop: Full width */}
+                  <div className="relative overflow-hidden w-28 md:w-full h-full md:h-48 shrink-0">
+                    {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                        <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center text-gray-300 group-hover:bg-gray-200 transition-colors">
+                           <svg className="w-6 h-6 md:w-10 md:h-10 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                           </svg>
+                           <span className="text-[10px] md:text-xs font-medium">無圖片</span>
+                        </div>
+                    )}
+                    <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[10px] md:text-xs font-bold shadow-sm text-gray-700 hidden md:block">
                       {item.category}
                     </div>
                   </div>
                   
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
-                      {/* 價格改為紅色 */}
-                      <span className="text-lg font-bold text-red-600">${item.price}</span>
+                  {/* Content Section - Compact Padding */}
+                  <div className="p-2 md:p-4 flex-1 flex flex-col justify-between md:block">
+                    <div>
+                        <div className="flex justify-between items-start md:mb-1 gap-2">
+                          <h3 className="text-sm md:text-lg font-bold text-gray-900 line-clamp-1">{item.name}</h3>
+                          {/* 價格改為紅色 */}
+                          <span className="text-sm md:text-lg font-bold text-red-600 shrink-0">${item.price}</span>
+                        </div>
+                        {/* 商品說明 (新增) */}
+                        <p className="text-[10px] md:text-xs text-gray-500 line-clamp-2 mt-0.5 md:mt-0 md:mb-2 md:h-8 leading-tight">
+                            {item.description}
+                        </p>
                     </div>
                     
-                    {/* 根據數量顯示不同按鈕狀態 */}
-                    {quantity > 0 ? (
-                      <div className="mt-4 flex items-center justify-between bg-brand-50 rounded-lg p-1 border border-brand-100">
-                        <button 
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-10 h-9 flex items-center justify-center bg-white rounded shadow-sm text-brand-600 font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                    {/* 操作按鈕 (置底) */}
+                    <div className="mt-1 md:mt-3">
+                        {quantity > 0 ? (
+                        <div className="flex items-center justify-between bg-brand-50 rounded-lg p-0.5 md:p-1 border border-brand-100">
+                            <button 
+                            onClick={() => removeFromCart(item.id)}
+                            className="w-8 h-8 md:w-10 md:h-9 flex items-center justify-center bg-white rounded shadow-sm text-brand-600 font-bold hover:bg-gray-50 active:scale-95 transition-all"
+                            >
+                            -
+                            </button>
+                            {/* 數量改為紅色 */}
+                            <span className="font-bold text-red-600 text-sm md:text-lg w-6 md:w-8 text-center">{quantity}</span>
+                            <button 
+                            onClick={() => addToCart(item)}
+                            className="w-8 h-8 md:w-10 md:h-9 flex items-center justify-center bg-brand-600 rounded shadow-sm text-white font-bold hover:bg-brand-700 active:scale-95 transition-all"
+                            >
+                            +
+                            </button>
+                        </div>
+                        ) : (
+                        <button
+                            onClick={() => addToCart(item)}
+                            className="w-full bg-gray-900 text-white py-2 md:py-2.5 px-3 md:px-4 rounded-lg font-medium hover:bg-gray-800 active:scale-95 transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
                         >
-                          -
+                            <span>加入</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
                         </button>
-                        {/* 數量改為紅色 */}
-                        <span className="font-bold text-red-600 text-lg w-8 text-center">{quantity}</span>
-                        <button 
-                          onClick={() => addToCart(item)}
-                          className="w-10 h-9 flex items-center justify-center bg-brand-600 rounded shadow-sm text-white font-bold hover:bg-brand-700 active:scale-95 transition-all"
-                        >
-                          +
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="mt-4 w-full bg-gray-900 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-gray-800 active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        <span>加入購物車</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </button>
-                    )}
+                        )}
+                    </div>
                   </div>
                 </div>
               );
