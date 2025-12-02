@@ -39,8 +39,15 @@ export interface Order {
   customerNote?: string; // 備註 (選填)
 }
 
+// 公告設定
+export interface BannerSettings {
+  enabled: boolean;
+  content: string;
+}
+
 // 商店全域設定
 export interface Settings {
   isOpen: boolean; // 是否營業中
   storeName?: string;
+  banner?: BannerSettings; // 首頁公告
 }

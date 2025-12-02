@@ -16,6 +16,7 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // 新增錯誤狀態
   const [storeOpen, setStoreOpen] = useState(true);
+  const [banner, setBanner] = useState({ enabled: false, content: '' }); // 公告狀態
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -61,12 +62,23 @@ const Home: React.FC = () => {
       }
     }, (err) => {
       console.error("讀取商店設定失敗:", err);
-      // 設定讀取失敗不影響主畫面，但記錄錯誤
+    });
+
+    // 3. 監聽公告設定 (settings/banner)
+    const unsubscribeBanner = onSnapshot(doc(db, 'settings', 'banner'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBanner({
+            enabled: data.enabled ?? false,
+            content: data.content ?? ''
+        });
+      }
     });
 
     return () => {
       unsubscribeProducts();
       unsubscribeSettings();
+      unsubscribeBanner();
     };
   }, []);
 
@@ -200,13 +212,17 @@ const Home: React.FC = () => {
 
   return (
     <div className="pb-24 relative min-h-screen bg-gray-50">
-      {/* Header Banner */}
-      <div className="bg-white shadow-sm py-6">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-2xl font-bold text-gray-800">歡迎光臨</h1>
-          <p className="text-gray-500 mt-1 text-sm">點選下方餐點加入購物車</p>
+      
+      {/* Dynamic Banner - Replaces Welcome Header */}
+      {banner.enabled && banner.content && (
+        <div className="bg-white shadow-sm py-5 border-b-2 border-brand-100 mb-1">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+            <h1 className="text-xl md:text-2xl font-bold text-brand-600 leading-tight whitespace-pre-line animate-fade-in">
+              {banner.content}
+            </h1>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 搜尋與分類過濾區塊 (Sticky) */}
       <div className="sticky top-16 z-30 bg-gray-50/95 backdrop-blur-sm shadow-sm pt-4 pb-4 transition-all">
@@ -248,7 +264,7 @@ const Home: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         {filteredItems.length > 0 ? (
-          /* 修改: 改為 grid-cols-1 (單排顯示) 配合 Flex 排版 */
+          /* 單排顯示 (List View) */
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {filteredItems.map((item) => {
               // 檢查此商品是否已在購物車中
@@ -282,7 +298,7 @@ const Home: React.FC = () => {
                           {/* 價格改為紅色 */}
                           <span className="text-sm md:text-lg font-bold text-red-600 shrink-0">${item.price}</span>
                         </div>
-                        {/* 商品說明 (新增) */}
+                        {/* 商品說明 */}
                         <p className="text-[10px] md:text-xs text-gray-500 line-clamp-2 mt-0.5 md:mt-0 md:mb-2 md:h-8 leading-tight">
                             {item.description}
                         </p>
