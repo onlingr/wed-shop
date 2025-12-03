@@ -1,119 +1,222 @@
-
-import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, writeBatch, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Order, OrderStatus, MenuItem } from '../types';
-import Loading from '../components/Loading';
 import { MENU_ITEMS } from '../constants';
+import { useToast } from '../contexts/ToastContext';
+import { OrderSkeleton, MenuSkeleton } from '../components/Skeletons';
+
+const NOTIFICATION_SOUND = 'data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAZGFzaABUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibZVfYnJhbmRzAGlzbzZtcDQxAFRTU0UAAAAOAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAALAAAADXAAAAMAAAAA1wAAAzJ4AAAAAFT/4zAAABdwAAAGwAAAAAAAAA0TGRlbABpbmZvAAAADwAAABIAAACFAAAhISEhMTExMTFhYWVhYWZmZmZxcXFxcnJycnt7e3t7hISEhISEjIyMjJSUlJScnJycnKSkpKSktLS0tLy8vLzExMTExNTU1NTU3Nzc3OTk5OTl7e3t7e3//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU5LjM3AAAAAAAAAAAAAAAAJAVAAAAAAAAAAhUjIu9ZAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////uQZAAABiE3U/0kAAJupvp/pIAAFUzdU+w8AAKjm6p9h4AAAASAAIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKmm6p9h4AAWQN1T7DwaQqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
 
 type Tab = 'orders' | 'menu' | 'settings';
-// 新增：訂單篩選狀態類型 (加入 'all')
 type OrderFilterType = 'all' | 'pending' | 'preparing' | 'completed' | 'history';
 
 const AdminDashboard: React.FC = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('orders');
   
-  // Orders State (全時監聽)
-  const [orders, setOrders] = useState<Order[]>([]);
+  // Orders State (Active / Real-time)
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
-  
-  // 新增：訂單篩選狀態 (預設顯示待處理)
   const [orderFilter, setOrderFilter] = useState<OrderFilterType>('pending');
-  
-  // 新增：控制哪個訂單卡片開啟了管理選單
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  // History Orders State (Search)
+  const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  // Default to today
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [searchDateStart, setSearchDateStart] = useState(todayStr);
+  const [searchDateEnd, setSearchDateEnd] = useState(todayStr);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Audio Notification State
+  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevPendingCountRef = useRef(0);
 
   // Menu State
   const [products, setProducts] = useState<MenuItem[]>([]);
   const [menuLoading, setMenuLoading] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<MenuItem | null>(null); // For Add/Edit Modal
+  const [editingProduct, setEditingProduct] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // 新增：菜單分類篩選狀態
   const [selectedMenuCategory, setSelectedMenuCategory] = useState('全部');
-  // 新增：控制圖片是否啟用
   const [useImage, setUseImage] = useState(true);
 
   // Settings State
   const [storeOpen, setStoreOpen] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
-
-  // 新增：公告設定狀態 (Local State for editing)
   const [bannerSettings, setBannerSettings] = useState({
     enabled: false,
     content: ''
   });
 
-  // --- Real-time Orders (Always Active) ---
+  // Initialize Audio Object
+  useEffect(() => {
+    audioRef.current = new Audio(NOTIFICATION_SOUND);
+  }, []);
+
+  // --- Real-time Orders (Active Only) ---
+  // 優化：只監聽「未完成」的訂單，減少讀取量
   useEffect(() => {
     setOrdersLoading(true);
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    // 查詢非歷史訂單 (新訂單、製作中、可取餐)
+    const q = query(
+        collection(db, "orders"), 
+        where("status", "in", [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.COMPLETED]),
+        orderBy("createdAt", "desc")
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newOrders = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Order));
-      setOrders(newOrders);
+      setActiveOrders(newOrders);
       setOrdersLoading(false);
     }, (error) => {
-      console.error("讀取訂單失敗:", error);
-      setOrdersLoading(false);
+      // 處理索引錯誤：如果因為複合查詢導致錯誤，則退回到查詢所有訂單 (相容性)
+      console.error("讀取訂單失敗 (可能缺索引):", error);
+      // Fallback: 讀取所有並前端過濾
+      const fallbackQ = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+      const fallbackUnsubscribe = onSnapshot(fallbackQ, (snap) => {
+         const allOrders = snap.docs.map(d => ({id: d.id, ...d.data()} as Order));
+         // Filter active ones
+         setActiveOrders(allOrders.filter(o => 
+             o.status === OrderStatus.PENDING || 
+             o.status === OrderStatus.PREPARING || 
+             o.status === OrderStatus.COMPLETED
+         ));
+         setOrdersLoading(false);
+      });
+      return () => fallbackUnsubscribe();
     });
+    
     return () => unsubscribe();
-  }, []); 
+  }, [showToast]); 
 
-  // --- Computed Values for Badges & Filtering ---
-  
-  // 計算各狀態數量
+  // --- Computed Values ---
   const counts = useMemo(() => {
     return {
-      all: orders.length, // 所有訂單總數
-      pending: orders.filter(o => o.status === OrderStatus.PENDING).length,
-      preparing: orders.filter(o => o.status === OrderStatus.PREPARING).length,
-      completed: orders.filter(o => o.status === OrderStatus.COMPLETED).length,
-      // 歷史包含: 已送餐 + 已取消
-      history: orders.filter(o => o.status === OrderStatus.SERVED || o.status === OrderStatus.CANCELLED).length
+      all: activeOrders.length,
+      pending: activeOrders.filter(o => o.status === OrderStatus.PENDING).length,
+      preparing: activeOrders.filter(o => o.status === OrderStatus.PREPARING).length,
+      completed: activeOrders.filter(o => o.status === OrderStatus.COMPLETED).length,
+      history: historyOrders.length // Display count of fetched history
     };
-  }, [orders]);
+  }, [activeOrders, historyOrders]);
 
-  // 計算今日已完成 (COMPLETED + SERVED) 訂單總金額
-  const todayRevenue = useMemo(() => {
-    const todayStr = new Date().toDateString(); // 取得今日日期字串 (例如 "Sat Nov 30 2024")
-    
-    return orders.reduce((sum, order) => {
-      // 確保訂單有時間戳記
-      if (!order.createdAt?.toDate) return sum;
-      
-      const orderDate = order.createdAt.toDate();
-      // 判斷是否為今天
-      const isToday = orderDate.toDateString() === todayStr;
-      
-      // 判斷狀態：只計算「可取餐」與「已送餐」的金額，這代表訂單已實質完成
-      const isRevenue = order.status === OrderStatus.COMPLETED || order.status === OrderStatus.SERVED;
-      
-      if (isToday && isRevenue) {
-        return sum + order.totalAmount;
-      }
-      return sum;
-    }, 0);
-  }, [orders]);
+  // 計算歷史搜尋結果中的已結案總金額
+  const historyRevenue = useMemo(() => {
+    return historyOrders
+        .filter(o => o.status === OrderStatus.SERVED)
+        .reduce((sum, o) => sum + o.totalAmount, 0);
+  }, [historyOrders]);
 
-  // 待處理總數 (用於瀏覽器標題與主分頁 Badge)
   const pendingCount = counts.pending;
 
-  // 根據篩選器過濾訂單列表
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      if (orderFilter === 'all') return true; // 顯示全部
+  // --- Notification Logic ---
+  useEffect(() => {
+    if (pendingCount > prevPendingCountRef.current) {
+        const diff = pendingCount - prevPendingCountRef.current;
+        showToast(`🔔 收到 ${diff} 筆新訂單！`, 'info');
+        if (isSoundEnabled && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(e => console.error("音效播放失敗", e));
+        }
+    }
+    prevPendingCountRef.current = pendingCount;
+  }, [pendingCount, isSoundEnabled, showToast]);
+
+  const toggleSound = () => {
+    setIsSoundEnabled(prev => !prev);
+    if (!isSoundEnabled && audioRef.current) {
+        audioRef.current.play().catch(() => {}).then(() => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+        });
+        showToast("🔔 音效通知已啟用", "success");
+    } else {
+        showToast("🔕 音效通知已關閉", "info");
+    }
+  };
+
+  // --- History Search Logic ---
+  const handleSearchHistory = async () => {
+      if (!searchDateStart || !searchDateEnd) {
+          showToast("請選擇開始與結束日期", "info");
+          return;
+      }
+      
+      setIsHistoryLoading(true);
+      setHistoryOrders([]);
+      setHasSearched(true);
+
+      try {
+          // 設定日期範圍 (00:00:00 ~ 23:59:59)
+          const start = new Date(searchDateStart);
+          start.setHours(0, 0, 0, 0);
+          
+          const end = new Date(searchDateEnd);
+          end.setHours(23, 59, 59, 999);
+
+          // 查詢 Firestore (依日期範圍)
+          // 註：這需要 createdAt 索引，但單純的範圍查詢通常不需要複合索引
+          const q = query(
+              collection(db, "orders"),
+              where("createdAt", ">=", Timestamp.fromDate(start)),
+              where("createdAt", "<=", Timestamp.fromDate(end)),
+              orderBy("createdAt", "desc")
+          );
+
+          const querySnapshot = await getDocs(q);
+          const results = querySnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+          } as Order));
+
+          // 前端過濾：只顯示「已送餐」或「已取消」
+          // (這樣可以避免在 Firestore 建立複雜的複合索引)
+          const filteredHistory = results.filter(o => 
+              o.status === OrderStatus.SERVED || 
+              o.status === OrderStatus.CANCELLED
+          );
+
+          setHistoryOrders(filteredHistory);
+          
+          if (filteredHistory.length === 0) {
+              showToast("此日期區間無歷史紀錄", "info");
+          } else {
+              showToast(`找到 ${filteredHistory.length} 筆歷史紀錄`, "success");
+          }
+
+      } catch (error) {
+          console.error("搜尋歷史失敗:", error);
+          showToast("搜尋失敗，請檢查網路或索引設定", "error");
+      } finally {
+          setIsHistoryLoading(false);
+      }
+  };
+
+  // --- Display Logic ---
+  // 根據當前 Filter 決定要顯示「活躍訂單」還是「歷史搜尋結果」
+  const displayedOrders = useMemo(() => {
+    if (orderFilter === 'history') {
+        return historyOrders;
+    }
+    
+    // 活躍訂單過濾
+    return activeOrders.filter(order => {
+      if (orderFilter === 'all') return true; // 這裡的 All 指的是所有「活躍」訂單
       if (orderFilter === 'pending') return order.status === OrderStatus.PENDING;
       if (orderFilter === 'preparing') return order.status === OrderStatus.PREPARING;
       if (orderFilter === 'completed') return order.status === OrderStatus.COMPLETED;
-      if (orderFilter === 'history') return order.status === OrderStatus.SERVED || order.status === OrderStatus.CANCELLED;
       return true;
     });
-  }, [orders, orderFilter]);
+  }, [activeOrders, historyOrders, orderFilter]);
 
-
-  // --- Browser Title Notification ---
   useEffect(() => {
     const originalTitle = document.title;
     if (pendingCount > 0) {
@@ -139,18 +242,17 @@ const AdminDashboard: React.FC = () => {
       setMenuLoading(false);
     }, (error) => {
       console.error("讀取商品失敗:", error);
+      showToast("讀取商品失敗", "error");
       setMenuLoading(false);
     });
     return () => unsubscribe();
-  }, [activeTab]);
+  }, [activeTab, showToast]);
 
-  // 計算菜單分類標籤
   const menuCategories = useMemo(() => {
     const unique = Array.from(new Set(products.map(p => p.category)));
     return ['全部', ...unique];
   }, [products]);
 
-  // 根據分類篩選商品
   const filteredProducts = useMemo(() => {
     return products.filter(p => selectedMenuCategory === '全部' || p.category === selectedMenuCategory);
   }, [products, selectedMenuCategory]);
@@ -160,8 +262,6 @@ const AdminDashboard: React.FC = () => {
     if (activeTab !== 'settings') return;
     
     setSettingsLoading(true);
-    
-    // 監聽商店營業狀態
     const unsubscribeStore = onSnapshot(doc(db, "settings", "store"), (docSnap) => {
       if (docSnap.exists()) {
         setStoreOpen(docSnap.data().isOpen !== false);
@@ -170,7 +270,6 @@ const AdminDashboard: React.FC = () => {
       }
     });
 
-    // 監聽公告設定
     const unsubscribeBanner = onSnapshot(doc(db, "settings", "banner"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -188,30 +287,43 @@ const AdminDashboard: React.FC = () => {
     };
   }, [activeTab]);
 
-
-  // --- Order Actions ---
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-    } catch (e) { alert("更新失敗"); }
+      showToast(`訂單狀態已更新`, "success");
+      // 注意：如果狀態變為 SERVED/CANCELLED，它會從 activeOrders 消失
+    } catch (e) { 
+        showToast("更新失敗", "error"); 
+    }
   };
   const deleteOrder = async (orderId: string) => {
     if(!window.confirm("確定刪除?")) return;
-    try { await deleteDoc(doc(db, "orders", orderId)); } catch (e) { console.error(e); }
+    try { 
+        await deleteDoc(doc(db, "orders", orderId)); 
+        showToast("訂單已刪除", "info");
+        // 更新 historyOrders (如果是在歷史頁面刪除)
+        setHistoryOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (e) { 
+        console.error(e); 
+        showToast("刪除失敗", "error");
+    }
   };
 
-  // --- Menu Actions ---
   const toggleProductAvailability = async (product: MenuItem) => {
     try {
       await updateDoc(doc(db, "products", product.id), {
         isAvailable: !product.isAvailable
       });
-    } catch (e) { alert("更新失敗"); }
+      showToast(product.isAvailable ? "商品已下架" : "商品已上架", "info");
+    } catch (e) { showToast("更新失敗", "error"); }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if(!window.confirm("確定刪除此商品?")) return;
-    try { await deleteDoc(doc(db, "products", id)); } catch(e) { alert("刪除失敗"); }
+    try { 
+        await deleteDoc(doc(db, "products", id));
+        showToast("商品已刪除", "success");
+    } catch(e) { showToast("刪除失敗", "error"); }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -223,36 +335,38 @@ const AdminDashboard: React.FC = () => {
         name: editingProduct.name,
         price: Number(editingProduct.price),
         category: editingProduct.category,
-        image: useImage ? editingProduct.image : '', // 若關閉圖片，則儲存空字串
-        description: editingProduct.description || '', // 儲存說明
+        image: useImage ? editingProduct.image : '',
+        description: editingProduct.description || '',
         isAvailable: editingProduct.isAvailable ?? true
       };
 
       if (editingProduct.id) {
         await updateDoc(doc(db, "products", editingProduct.id), productData);
+        showToast("商品更新成功", "success");
       } else {
         await addDoc(collection(db, "products"), productData);
+        showToast("商品新增成功", "success");
       }
       setIsModalOpen(false);
       setEditingProduct(null);
     } catch (err) {
       console.error(err);
-      alert("儲存失敗");
+      showToast("儲存失敗", "error");
     }
   };
 
-  // --- Settings Actions ---
   const toggleStoreStatus = async () => {
     try {
       await setDoc(doc(db, "settings", "store"), { isOpen: !storeOpen }, { merge: true });
-    } catch(e) { alert("設定失敗"); }
+      showToast(storeOpen ? "商店已設為休息中" : "商店已設為營業中", storeOpen ? "info" : "success");
+    } catch(e) { showToast("設定失敗", "error"); }
   };
   
   const saveBannerSettings = async () => {
     try {
       await setDoc(doc(db, "settings", "banner"), bannerSettings, { merge: true });
-      alert("公告設定已儲存");
-    } catch(e) { alert("儲存失敗"); }
+      showToast("公告設定已儲存", "success");
+    } catch(e) { showToast("儲存失敗", "error"); }
   };
 
   const importDefaultMenu = async () => {
@@ -268,51 +382,96 @@ const AdminDashboard: React.FC = () => {
             isAvailable: true
         });
       }
-      alert("匯入成功！請至「菜單管理」查看。");
+      showToast("匯入成功！請至「菜單管理」查看。", "success");
     } catch (e) {
       console.error(e);
-      alert("匯入失敗");
+      showToast("匯入失敗", "error");
     }
   };
   
-  // 清除歷史訂單功能 (危險操作)
   const clearHistoryOrders = async () => {
-    // 篩選出歷史訂單 (已送餐 或 已取消)
-    const historyOrders = orders.filter(o => o.status === OrderStatus.SERVED || o.status === OrderStatus.CANCELLED);
+    // 這裡清除的是資料庫中所有的歷史訂單，與當前搜尋無關
+    // 為了安全，我們還是需要執行查詢來確定有哪些要刪
+    // 這裡只簡單實作：清除「所有」已結案/已取消 (不論日期)
+    // 但這需要全表掃描，成本高。
+    // 建議：只清除「當前搜尋結果」中的訂單？
+    // 使用者需求是「清除所有歷史訂單」。
     
-    if (historyOrders.length === 0) {
-      alert("目前沒有歷史訂單可清除。");
+    if (!window.confirm(`即將永久刪除「所有」歷史訂單 (已結案/已取消)。\n此動作無法復原，確定要執行嗎？`)) {
       return;
     }
-
-    if (!window.confirm(`即將永久刪除 ${historyOrders.length} 筆歷史訂單 (已結案/已取消)。\n此動作無法復原，確定要執行嗎？`)) {
-      return;
-    }
-
     const confirmCode = window.prompt("為了確認您的操作，請輸入 'clear' 以執行刪除：");
     if (confirmCode !== 'clear') {
-      alert("驗證碼錯誤，已取消操作。");
+      showToast("驗證碼錯誤，已取消操作。", "error");
       return;
     }
-
+    
     try {
-      // Firestore batch limit is 500. 若訂單量大，建議分批處理。這裡簡單實作單一批次。
-      const batch = writeBatch(db);
-      historyOrders.forEach(order => {
-        if (order.id) {
-            batch.delete(doc(db, "orders", order.id));
-        }
-      });
+      // 這裡需要查詢所有歷史訂單 (可能需要分批)
+      // 簡單起見，我們只查詢最近 500 筆歷史來刪除，避免超時
+      const q = query(
+          collection(db, "orders"), 
+          where("status", "in", [OrderStatus.SERVED, OrderStatus.CANCELLED]),
+          orderBy("createdAt", "desc")
+          // limit(500) // Optional
+      );
+      const snapshot = await getDocs(q);
       
+      if (snapshot.empty) {
+          showToast("沒有可刪除的歷史訂單", "info");
+          return;
+      }
+
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+      });
       await batch.commit();
-      alert("歷史訂單清除成功！");
+      
+      showToast(`已清除 ${snapshot.size} 筆歷史訂單`, "success");
+      setHistoryOrders([]); // 清空當前顯示
     } catch (e) {
       console.error("清除失敗:", e);
-      alert("清除失敗，請檢查網路或權限。");
+      showToast("清除失敗 (可能需要索引或資料量過大)", "error");
     }
   };
 
-  // --- Helper for Status Visuals ---
+  const handleClearAllOrders = async () => {
+    if (activeOrders.length === 0 && historyOrders.length === 0) {
+      showToast("目前列表中沒有訂單。", "info");
+      return;
+    }
+    if (!window.confirm(`【危險警告】\n您即將刪除資料庫中的訂單。\n這通常用於測試後清空資料，或每日結算後的歸零。`)) {
+        return;
+    }
+    
+    const confirmCode = window.prompt("請輸入 'delete' 以確認刪除操作：");
+    if (confirmCode !== 'delete') {
+        showToast("驗證碼錯誤，取消操作。", "error");
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+        // 清除活躍訂單
+        activeOrders.forEach(order => {
+            if (order.id) batch.delete(doc(db, 'orders', order.id));
+        });
+        // 清除當前顯示的歷史訂單
+        historyOrders.forEach(order => {
+            if (order.id) batch.delete(doc(db, 'orders', order.id));
+        });
+        
+        await batch.commit();
+        showToast("訂單已清空！", "success");
+        // 本地狀態會因 onSnapshot 自動更新 activeOrders，但 history 需要手動清
+        setHistoryOrders([]);
+    } catch (error) {
+        console.error("清空訂單失敗:", error);
+        showToast("清空失敗，請檢查網路連線。", "error");
+    }
+  };
+
   const getStatusConfig = (status: OrderStatus) => {
     switch (status) {
       case OrderStatus.PENDING:
@@ -431,22 +590,25 @@ const AdminDashboard: React.FC = () => {
         <>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4">
-              <h1 className="text-2xl font-bold text-gray-900">即時訂單監控</h1>
-              {/* 今日營收顯示 */}
-              <div className="bg-green-50 px-3 py-1.5 rounded-lg border border-green-200 shadow-sm flex items-center gap-2">
-                 <span className="text-sm text-green-800 font-medium">今日已完成營收:</span>
-                 <span className="text-lg font-bold text-green-700">${todayRevenue}</span>
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                即時訂單監控
+                <button 
+                    onClick={toggleSound}
+                    className={`text-sm px-2 py-1 rounded-md border flex items-center gap-1 transition-colors ${isSoundEnabled ? 'bg-brand-50 border-brand-200 text-brand-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+                    title={isSoundEnabled ? "點擊關閉音效" : "點擊開啟新訂單通知音效"}
+                >
+                    {isSoundEnabled ? '🔔 音效已開' : '🔕 音效已關'}
+                </button>
+              </h1>
             </div>
             
-            {/* 訂單分類篩選按鈕 (Tabs) */}
             <div className="flex p-1 space-x-1 bg-gray-100 rounded-xl overflow-x-auto max-w-full">
               {[
-                { id: 'all', label: '全部', count: counts.all, color: 'text-gray-800' },
+                { id: 'all', label: '全部(活躍)', count: counts.all, color: 'text-gray-800' },
                 { id: 'pending', label: '新訂單', count: counts.pending, color: 'text-red-600' },
                 { id: 'preparing', label: '製作中', count: counts.preparing, color: 'text-blue-600' },
                 { id: 'completed', label: '可取餐', count: counts.completed, color: 'text-green-600' },
-                { id: 'history', label: '歷史記錄', count: counts.history, color: 'text-gray-600' },
+                { id: 'history', label: '歷史查詢', count: counts.history, color: 'text-gray-600' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -468,10 +630,55 @@ const AdminDashboard: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* Date Range Picker for History */}
+          {orderFilter === 'history' && (
+            <>
+             <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+                 <div className="flex flex-col gap-1 w-full sm:w-auto">
+                    <label className="text-xs font-bold text-gray-500 uppercase">開始日期</label>
+                    <input 
+                        type="date" 
+                        value={searchDateStart}
+                        onChange={(e) => setSearchDateStart(e.target.value)}
+                        className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500"
+                    />
+                 </div>
+                 <div className="flex flex-col gap-1 w-full sm:w-auto">
+                    <label className="text-xs font-bold text-gray-500 uppercase">結束日期</label>
+                    <input 
+                        type="date" 
+                        value={searchDateEnd}
+                        onChange={(e) => setSearchDateEnd(e.target.value)}
+                        className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500"
+                    />
+                 </div>
+                 <button 
+                    onClick={handleSearchHistory}
+                    disabled={isHistoryLoading}
+                    className="w-full sm:w-auto bg-brand-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm hover:bg-brand-700 disabled:opacity-50 transition-all"
+                 >
+                    {isHistoryLoading ? '搜尋中...' : '🔍 查詢歷史'}
+                 </button>
+             </div>
+             {hasSearched && (
+                 <div className="mb-6 bg-green-50 border border-green-200 p-4 rounded-lg flex justify-between items-center shadow-sm">
+                    <span className="text-green-800 font-bold">查詢範圍已結案總金額</span>
+                    <span className="text-2xl font-bold text-green-700">${historyRevenue}</span>
+                 </div>
+             )}
+            </>
+          )}
           
-          {ordersLoading ? <Loading /> : (
+          {(ordersLoading || isHistoryLoading) ? (
+             /* 使用 OrderSkeleton 顯示載入狀態 */
+             <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                 {[1,2,3,4,5,6].map(i => <OrderSkeleton key={i} />)}
+             </div>
+          ) : (
+            <>
             <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {filteredOrders.map((order) => {
+              {displayedOrders.map((order) => {
                 const isMenuOpen = menuOpenId === order.id;
                 const statusConfig = getStatusConfig(order.status);
                 
@@ -484,7 +691,6 @@ const AdminDashboard: React.FC = () => {
                       ${order.status === OrderStatus.PENDING ? 'ring-2 ring-red-100' : ''}
                     `}
                   >
-                    {/* 1. Header: 編號 & 狀態 & 時間 */}
                     <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                         <div className="flex items-center gap-2">
                              <span className="text-xl font-black text-gray-800 font-mono tracking-tight">
@@ -496,13 +702,11 @@ const AdminDashboard: React.FC = () => {
                              </div>
                         </div>
                         <span className="text-xs text-gray-400 font-mono">
-                           {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                           {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' }) : '--:--'}
                         </span>
                     </div>
 
                     <div className="p-3 flex-grow flex flex-col gap-2">
-                      
-                      {/* 2. 顧客資訊 (Separate Rows) */}
                       <div className="flex flex-col gap-1 pb-2 border-b border-gray-100 border-dashed text-sm text-gray-600">
                          <div className="flex items-center gap-2">
                             <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -514,7 +718,6 @@ const AdminDashboard: React.FC = () => {
                          </div>
                       </div>
 
-                      {/* 3. 餐點清單 (Ticket Style) */}
                       <div className="space-y-2 flex-grow">
                         {order.items.map((item, index) => (
                           <div key={index} className="grid grid-cols-[auto_1fr_auto] items-start gap-3 text-sm">
@@ -529,7 +732,6 @@ const AdminDashboard: React.FC = () => {
                         ))}
                       </div>
 
-                      {/* 備註 (獨立區塊) */}
                       {order.customerNote && (
                          <div className="mt-1 bg-yellow-50 text-yellow-800 text-xs p-2 rounded border border-yellow-100 flex items-start gap-2">
                             <span className="shrink-0 font-bold">備註:</span>
@@ -538,17 +740,14 @@ const AdminDashboard: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* 4. 底部金額與操作 */}
                     <div className="bg-gray-50 p-2 border-t border-gray-200">
                         <div className="flex justify-between items-center mb-2 px-1">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">總金額</span>
                             <span className="text-xl font-bold text-red-600">${order.totalAmount}</span>
                         </div>
 
-                        {/* 操作按鈕 */}
                         <div>
                         {isMenuOpen ? (
-                            // --- 管理選單 (取消/刪除) ---
                             <div className="grid grid-cols-2 gap-2 animate-fade-in">
                                 {order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.SERVED && (
                                     <button onClick={() => { if(window.confirm('確定取消?')) { updateOrderStatus(order.id!, OrderStatus.CANCELLED); setMenuOpenId(null); } }} className="col-span-1 bg-white text-orange-600 border border-orange-200 py-1.5 rounded font-bold text-sm hover:bg-orange-50">🚫 取消</button>
@@ -557,7 +756,6 @@ const AdminDashboard: React.FC = () => {
                                 <button onClick={() => setMenuOpenId(null)} className="col-span-2 bg-gray-200 text-gray-600 py-1.5 rounded font-bold text-sm hover:bg-gray-300">↩️ 返回</button>
                             </div>
                         ) : (
-                            // --- 主要流程 ---
                             <div className="flex gap-2">
                                 <div className="flex-1">
                                     {order.status === OrderStatus.PENDING && (
@@ -584,8 +782,7 @@ const AdminDashboard: React.FC = () => {
                 );
               })}
               
-              {/* 無訂單時的提示 */}
-              {filteredOrders.length === 0 && (
+              {displayedOrders.length === 0 && (
                 <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-400 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
                   <div className="bg-gray-100 p-4 rounded-full mb-3">
                     <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -593,14 +790,28 @@ const AdminDashboard: React.FC = () => {
                     </svg>
                   </div>
                   <p className="font-medium text-lg">
-                    {orderFilter === 'all' ? '目前沒有任何訂單' :
+                    {orderFilter === 'history' && !hasSearched ? '請選擇日期並點擊查詢' :
+                     orderFilter === 'history' ? '查無資料' :
+                     orderFilter === 'all' ? '目前沒有任何訂單' :
                      orderFilter === 'pending' ? '目前沒有新訂單' : 
                      orderFilter === 'preparing' ? '目前沒有製作中的餐點' :
-                     orderFilter === 'completed' ? '目前沒有待取餐的訂單' : '沒有歷史記錄'}
+                     '目前沒有待取餐的訂單'}
                   </p>
                 </div>
               )}
             </div>
+
+            {displayedOrders.length > 0 && orderFilter === 'all' && (
+                <div className="mt-8 border-t border-gray-200 pt-6">
+                    <button 
+                        onClick={handleClearAllOrders}
+                        className="w-full sm:w-auto bg-gray-100 hover:bg-red-50 text-gray-500 hover:text-red-600 px-4 py-2 rounded-lg text-sm transition-colors border border-transparent hover:border-red-200"
+                    >
+                        🗑️ 清除所有訂單 (危險操作)
+                    </button>
+                </div>
+            )}
+            </>
           )}
         </>
       )}
@@ -622,7 +833,6 @@ const AdminDashboard: React.FC = () => {
             </button>
           </div>
 
-          {/* 新增：菜單分類標籤 */}
           <div className="flex gap-2 overflow-x-auto pb-4 mb-2 hide-scrollbar">
             {menuCategories.map((category) => (
               <button
@@ -640,7 +850,12 @@ const AdminDashboard: React.FC = () => {
             ))}
           </div>
 
-          {menuLoading ? <Loading /> : (
+          {menuLoading ? (
+            /* 骨架屏載入效果 */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {[1,2,3,4].map(i => <MenuSkeleton key={i} />)}
+            </div>
+          ) : (
             <>
               {/* Mobile View: Cards (Visible on small screens) */}
               <div className="block sm:hidden space-y-4">

@@ -1,12 +1,13 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { collection, serverTimestamp, onSnapshot, doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { MenuItem, OrderStatus } from '../types';
 import { useCart } from '../contexts/CartContext';
-import Loading from '../components/Loading';
+import { useToast } from '../contexts/ToastContext';
+import { ProductSkeleton } from '../components/Skeletons';
 
 const Home: React.FC = () => {
+  const { showToast } = useToast();
   const { 
     cart, addToCart, removeFromCart, clearCart, totalAmount, totalItems,
     isCheckoutOpen, openCheckout, closeCheckout 
@@ -14,38 +15,32 @@ const Home: React.FC = () => {
   
   const [products, setProducts] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // 新增錯誤狀態
+  const [error, setError] = useState<string | null>(null);
   const [storeOpen, setStoreOpen] = useState(true);
-  const [banner, setBanner] = useState({ enabled: false, content: '' }); // 公告狀態
+  const [banner, setBanner] = useState({ enabled: false, content: '' });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // 顧客資料狀態
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNote, setCustomerNote] = useState('');
 
-  // 搜尋與分類狀態
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('全部');
 
-  // 初始化：監聽商品與商店設定
   useEffect(() => {
     setLoading(true);
     setError(null);
     
-    // 1. 監聽商品列表
     const unsubscribeProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const items = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as MenuItem));
-      // 只顯示上架中的商品
       setProducts(items.filter(item => item.isAvailable !== false));
       setLoading(false);
     }, (err) => {
       console.error("讀取商品失敗:", err);
-      // 若是權限錯誤，顯示特定訊息
       if (err.code === 'permission-denied') {
         setError("無法讀取菜單：權限不足。請確認 Firebase Security Rules 設定是否正確。");
       } else {
@@ -54,17 +49,13 @@ const Home: React.FC = () => {
       setLoading(false);
     });
 
-    // 2. 監聽商店營業狀態 (settings/store)
     const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'store'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setStoreOpen(data.isOpen !== false); // 預設 true
+        setStoreOpen(data.isOpen !== false);
       }
-    }, (err) => {
-      console.error("讀取商店設定失敗:", err);
     });
 
-    // 3. 監聽公告設定 (settings/banner)
     const unsubscribeBanner = onSnapshot(doc(db, 'settings', 'banner'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -82,13 +73,11 @@ const Home: React.FC = () => {
     };
   }, []);
 
-  // 自動從 products 提取所有分類，並加上 '全部'
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(new Set(products.map(item => item.category)));
     return ['全部', ...uniqueCategories];
   }, [products]);
 
-  // 根據搜尋關鍵字與分類過濾商品
   const filteredItems = useMemo(() => {
     return products.filter(item => {
       const matchesCategory = selectedCategory === '全部' || item.category === selectedCategory;
@@ -97,19 +86,22 @@ const Home: React.FC = () => {
     });
   }, [searchTerm, selectedCategory, products]);
 
-  // 開啟結帳視窗
   const handleOpenCheckout = () => {
     if (cart.length === 0) return;
     openCheckout();
   };
 
-  // 送出訂單到 Firestore (使用 Transaction 確保流水號)
+  const handleAddToCart = (item: MenuItem) => {
+      addToCart(item);
+      showToast(`已加入: ${item.name}`, 'success');
+  };
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
     
     if (!storeOpen) {
-      alert("抱歉，目前商店休息中，無法接收新訂單。");
+      showToast("抱歉，目前商店休息中，無法接收新訂單。", "error");
       return;
     }
 
@@ -117,8 +109,6 @@ const Home: React.FC = () => {
 
     try {
       await runTransaction(db, async (transaction) => {
-        // 1. 取得今日日期字串 (YYYY-MM-DD)，作為 counter 的 ID
-        // 使用當地時間，避免時區問題導致隔天還沒重置
         const today = new Date();
         const dateStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
         
@@ -131,70 +121,50 @@ const Home: React.FC = () => {
           newOrderNumber = currentCount + 1;
           transaction.update(counterRef, { count: newOrderNumber });
         } else {
-          // 今天第一筆
           transaction.set(counterRef, { count: 1 });
         }
 
-        // 2. 建立新訂單
         const newOrderRef = doc(collection(db, "orders"));
         transaction.set(newOrderRef, {
-          orderNumber: newOrderNumber, // 寫入流水號
+          orderNumber: newOrderNumber,
           items: cart,
           totalAmount,
           status: OrderStatus.PENDING,
           createdAt: serverTimestamp(),
-          customerName,   // 必填
-          customerPhone,  // 必填
-          customerNote: customerNote || '',   // 選填
+          customerName,
+          customerPhone,
+          customerNote: customerNote || '',
         });
       });
 
-      alert("訂單已送出！我們會盡快為您準備。");
+      showToast("訂單已送出！我們會盡快為您準備。", "success");
       clearCart();
       closeCheckout();
-      // 重置表單
       setCustomerName('');
       setCustomerPhone('');
       setCustomerNote('');
     } catch (error: any) {
       console.error("送出訂單失敗:", error);
-      if (error.code === 'permission-denied') {
-        alert("送出失敗：權限不足。請確認 Firestore Rules 是否允許寫入 'counters' 與 'orders'。");
-      } else {
-        alert("送出失敗，請稍後再試。");
-      }
+      showToast("送出失敗，請稍後再試。", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) return <Loading />;
-
-  // 錯誤顯示畫面
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border border-red-100">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">發生錯誤</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-brand-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-brand-700 transition-colors"
-          >
-            重新整理
-          </button>
+           <h2 className="text-xl font-bold text-gray-800 mb-2">發生錯誤</h2>
+           <p className="text-gray-600 mb-4">{error}</p>
+           <button onClick={() => window.location.reload()} className="bg-brand-600 text-white px-6 py-2 rounded-lg">重新整理</button>
         </div>
       </div>
     );
   }
 
-  // 商店休息中畫面
-  if (!storeOpen) {
+  // 商店休息中畫面 (僅在非載入中時顯示)
+  if (!loading && !storeOpen) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
@@ -213,67 +183,89 @@ const Home: React.FC = () => {
   return (
     <div className="pb-24 relative min-h-screen bg-gray-50">
       
-      {/* Dynamic Banner - Replaces Welcome Header */}
-      {banner.enabled && banner.content && (
-        <div className="bg-white shadow-sm py-5 border-b-2 border-brand-100 mb-1">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <h1 className="text-xl md:text-2xl font-bold text-brand-600 leading-tight whitespace-pre-line animate-fade-in">
-              {banner.content}
-            </h1>
-          </div>
-        </div>
+      {/* 載入中也顯示 Header 骨架或 Banner */}
+      {loading ? (
+         <div className="bg-white shadow-sm py-5 border-b-2 border-brand-100 mb-1">
+             <div className="max-w-7xl mx-auto px-4 text-center">
+                 <div className="h-8 bg-gray-200 rounded w-2/3 mx-auto animate-pulse"></div>
+             </div>
+         </div>
+      ) : (
+          banner.enabled && banner.content && (
+            <div className="bg-white shadow-sm py-5 border-b-2 border-brand-100 mb-1">
+              <div className="max-w-7xl mx-auto px-4 text-center">
+                <h1 className="text-xl md:text-2xl font-bold text-brand-600 leading-tight whitespace-pre-line animate-fade-in">
+                  {banner.content}
+                </h1>
+              </div>
+            </div>
+          )
       )}
 
       {/* 搜尋與分類過濾區塊 (Sticky) */}
       <div className="sticky top-16 z-30 bg-gray-50/95 backdrop-blur-sm shadow-sm pt-4 pb-4 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
           
-          {/* 搜尋欄 */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="搜尋餐點..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-brand-500 bg-white text-gray-800 placeholder-gray-400 transition-shadow"
-            />
-            <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+          {loading ? (
+             <div className="space-y-4 animate-pulse">
+                <div className="h-12 bg-gray-200 rounded-xl w-full"></div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                    {[1,2,3,4,5].map(i => <div key={i} className="h-9 w-20 bg-gray-200 rounded-full shrink-0"></div>)}
+                </div>
+             </div>
+          ) : (
+            <>
+                {/* 搜尋欄 */}
+                <div className="relative">
+                    <input
+                    type="text"
+                    placeholder="搜尋餐點..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-brand-500 bg-white text-gray-800 placeholder-gray-400 transition-shadow"
+                    />
+                    <svg className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
 
-          {/* 分類標籤 (可橫向捲動) */}
-          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`
-                  whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
-                  ${selectedCategory === category 
-                    ? 'bg-brand-600 text-white shadow-md shadow-brand-200 scale-105' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'}
-                `}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
+                {/* 分類標籤 */}
+                <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+                    {categories.map((category) => (
+                    <button
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        className={`
+                        whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                        ${selectedCategory === category 
+                            ? 'bg-brand-600 text-white shadow-md shadow-brand-200 scale-105' 
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'}
+                        `}
+                    >
+                        {category}
+                    </button>
+                    ))}
+                </div>
+            </>
+          )}
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        {filteredItems.length > 0 ? (
-          /* 單排顯示 (List View) */
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+        {loading ? (
+            /* 骨架屏載入效果 */
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                {[1,2,3,4,5,6,7,8].map(i => <ProductSkeleton key={i} />)}
+            </div>
+        ) : filteredItems.length > 0 ? (
+          /* 商品列表 */
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 animate-fade-in">
             {filteredItems.map((item) => {
-              // 檢查此商品是否已在購物車中
               const cartItem = cart.find(c => c.id === item.id);
               const quantity = cartItem ? cartItem.quantity : 0;
 
               return (
                 <div key={item.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 border border-gray-100 group flex flex-row md:flex-col h-28 md:h-auto">
-                  {/* Image Section - Mobile: Compact Fixed width (112px), Desktop: Full width */}
                   <div className="relative overflow-hidden w-28 md:w-full h-full md:h-48 shrink-0">
                     {item.image ? (
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover md:group-hover:scale-105 transition-transform duration-500" />
@@ -290,21 +282,17 @@ const Home: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Content Section - Compact Padding */}
                   <div className="p-2 md:p-4 flex-1 flex flex-col justify-between md:block">
                     <div>
                         <div className="flex justify-between items-start md:mb-1 gap-2">
                           <h3 className="text-sm md:text-lg font-bold text-gray-900 line-clamp-1">{item.name}</h3>
-                          {/* 價格改為紅色 */}
                           <span className="text-sm md:text-lg font-bold text-red-600 shrink-0">${item.price}</span>
                         </div>
-                        {/* 商品說明 */}
                         <p className="text-[10px] md:text-xs text-gray-500 line-clamp-2 mt-0.5 md:mt-0 md:mb-2 md:h-8 leading-tight">
                             {item.description}
                         </p>
                     </div>
                     
-                    {/* 操作按鈕 (置底) */}
                     <div className="mt-1 md:mt-3">
                         {quantity > 0 ? (
                         <div className="flex items-center justify-between bg-brand-50 rounded-lg p-0.5 md:p-1 border border-brand-100">
@@ -314,10 +302,9 @@ const Home: React.FC = () => {
                             >
                             -
                             </button>
-                            {/* 數量改為紅色 */}
                             <span className="font-bold text-red-600 text-sm md:text-lg w-6 md:w-8 text-center">{quantity}</span>
                             <button 
-                            onClick={() => addToCart(item)}
+                            onClick={() => handleAddToCart(item)}
                             className="w-8 h-8 md:w-10 md:h-9 flex items-center justify-center bg-brand-600 rounded shadow-sm text-white font-bold hover:bg-brand-700 active:scale-95 transition-all"
                             >
                             +
@@ -325,7 +312,7 @@ const Home: React.FC = () => {
                         </div>
                         ) : (
                         <button
-                            onClick={() => addToCart(item)}
+                            onClick={() => handleAddToCart(item)}
                             className="w-full bg-gray-900 text-white py-2 md:py-2.5 px-3 md:px-4 rounded-lg font-medium hover:bg-gray-800 active:scale-95 transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm"
                         >
                             <span>加入</span>
@@ -342,37 +329,23 @@ const Home: React.FC = () => {
           </div>
         ) : (
           <div className="text-center py-20">
-            <div className="bg-gray-100 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-4">
-              {products.length === 0 ? (
-                // 若商品列表為空，提示店長去後台設定
-                <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              )}
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">
-              {products.length === 0 ? "目前尚未建立菜單" : "找不到相關餐點"}
-            </h3>
-            <p className="text-gray-500 mt-1">
-               {products.length === 0 ? "請聯絡管理員至後台新增商品" : "請嘗試不同的關鍵字或分類"}
-            </p>
-            {products.length > 0 && (
-              <button 
+             {/* Empty State */}
+             <div className="bg-gray-100 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-4">
+               <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+               </svg>
+             </div>
+             <h3 className="text-lg font-medium text-gray-900">找不到相關餐點</h3>
+             <button 
                 onClick={() => {setSearchTerm(''); setSelectedCategory('全部');}}
                 className="mt-4 text-brand-600 font-medium hover:text-brand-700"
               >
                 清除所有條件
               </button>
-            )}
           </div>
         )}
       </div>
 
-      {/* 底部 Compact 購物車列 */}
       {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] p-4 z-40 animate-slide-up">
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
@@ -380,7 +353,6 @@ const Home: React.FC = () => {
               <span className="text-gray-500 text-xs font-medium">總計 {totalItems} 項餐點</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-sm font-bold text-gray-900">NT$</span>
-                {/* 總金額改為紅色 */}
                 <span className="text-2xl font-extrabold text-red-600">{totalAmount}</span>
               </div>
             </div>
@@ -398,12 +370,9 @@ const Home: React.FC = () => {
         </div>
       )}
 
-      {/* 結帳 Modal (包含詳細清單管理) */}
       {isCheckoutOpen && cart.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
           <div className="bg-white w-full max-w-lg h-[90vh] sm:h-auto sm:max-h-[85vh] sm:rounded-2xl shadow-2xl flex flex-col animate-scale-up">
-            
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sm:rounded-t-2xl">
               <h3 className="text-lg font-bold text-gray-800">結帳確認</h3>
               <button 
@@ -415,7 +384,6 @@ const Home: React.FC = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto p-6">
-              {/* 訂單詳細清單 */}
               <div className="mb-6">
                 <h4 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">餐點明細</h4>
                 <div className="space-y-3">
@@ -424,7 +392,6 @@ const Home: React.FC = () => {
                        <div className="flex-1">
                          <div className="font-bold text-gray-800">{item.name}</div>
                          <div className="text-sm text-gray-500">
-                           {/* 列表價格改為紅色 */}
                            <span className="text-red-600 font-bold">${item.price}</span> / 份
                          </div>
                        </div>
@@ -435,10 +402,9 @@ const Home: React.FC = () => {
                           >
                             -
                           </button>
-                          {/* 列表數量改為紅色 */}
                           <span className="font-bold text-red-600 w-4 text-center">{item.quantity}</span>
                           <button 
-                            onClick={() => addToCart(item)}
+                            onClick={() => handleAddToCart(item)}
                             className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-green-600 transition-colors"
                           >
                             +
@@ -447,18 +413,14 @@ const Home: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                {/* 總結列 */}
                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                    <span className="font-bold text-gray-600">總金額</span>
-                   {/* Modal 總金額改為紅色 */}
                    <span className="font-extrabold text-2xl text-red-600">${totalAmount}</span>
                 </div>
               </div>
 
-              {/* 分隔線 */}
               <div className="h-2 bg-gray-100 -mx-6 mb-6"></div>
 
-              {/* 顧客資料表單 */}
               <form id="order-form" onSubmit={handleSubmitOrder} className="space-y-4">
                 <h4 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">聯絡資訊</h4>
                 <div>
@@ -498,7 +460,6 @@ const Home: React.FC = () => {
               </form>
             </div>
 
-            {/* Modal Footer Actions */}
             <div className="p-4 border-t border-gray-100 flex gap-3 bg-white sm:rounded-b-2xl">
               <button
                 type="button"

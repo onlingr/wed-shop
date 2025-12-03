@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import * as firebaseApp from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -26,7 +26,9 @@ const firebaseConfig = {
 };
 
 // 初始化 Firebase
-const app = initializeApp(firebaseConfig);
+// 使用 getApps 防止重複初始化 (React Strict Mode 或 Hot Reload 可能導致重複執行)
+// 使用 namespace import 解決 initializeApp 可能無法解析的問題
+const app = firebaseApp.getApps().length === 0 ? firebaseApp.initializeApp(firebaseConfig) : firebaseApp.getApps()[0];
 
 // 匯出 Auth 和 Firestore 實例供全域使用
 export const auth = getAuth(app);
