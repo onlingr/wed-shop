@@ -6,7 +6,8 @@ import { MENU_ITEMS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { OrderSkeleton, MenuSkeleton } from '../components/Skeletons';
 
-const NOTIFICATION_SOUND = 'data:audio/mp3;base64,SUQzBAAAAAABAFRYWFQAAAASAAADbWFqb3JfYnJhbmQAZGFzaABUWFhUAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhUAAAAHAAAA2NvbXBhdGlibZVfYnJhbmRzAGlzbzZtcDQxAFRTU0UAAAAOAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAALAAAADXAAAAMAAAAA1wAAAzJ4AAAAAFT/4zAAABdwAAAGwAAAAAAAAA0TGRlbABpbmZvAAAADwAAABIAAACFAAAhISEhMTExMTFhYWVhYWZmZmZxcXFxcnJycnt7e3t7hISEhISEjIyMjJSUlJScnJycnKSkpKSktLS0tLy8vLzExMTExNTU1NTU3Nzc3OTk5OTl7e3t7e3//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU5LjM3AAAAAAAAAAAAAAAAJAVAAAAAAAAAAhUjIu9ZAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////uQZAAABiE3U/0kAAJupvp/pIAAFUzdU+w8AAKjm6p9h4AAAASAAIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKmm6p9h4AAWQN1T7DwaQqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+// 新的提示音效 (清脆的叮咚聲)
+const NOTIFICATION_SOUND = 'data:audio/mp3;base64,//uQZAAAAAAAALAAAADXAAAAMAAAAA1wAAAzJ4AAAAAFT/4zAAABdwAAAGwAAAAAAAAA0TGRlbABpbmZvAAAADwAAABIAAACFAAAhISEhMTExMTFhYWVhYWZmZmZxcXFxcnJycnt7e3t7hISEhISEjIyMjJSUlJScnJycnKSkpKSktLS0tLy8vLzExMTExNTU1NTU3Nzc3OTk5OTl7e3t7e3//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU5LjM3AAAAAAAAAAAAAAAAJAVAAAAAAAAAAhUjIu9ZAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////uQZAAABiE3U/08AAKmm6p9h4AAWQN1T7DwaQqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
 
 type Tab = 'orders' | 'menu' | 'settings';
 type OrderFilterType = 'all' | 'pending' | 'preparing' | 'completed' | 'history';
@@ -31,7 +32,10 @@ const AdminDashboard: React.FC = () => {
   const [hasSearched, setHasSearched] = useState(false);
 
   // Audio Notification State
-  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+  // 初始化時從 localStorage 讀取設定
+  const [isSoundEnabled, setIsSoundEnabled] = useState(() => {
+    return localStorage.getItem('isSoundEnabled') === 'true';
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevPendingCountRef = useRef(0);
 
@@ -54,17 +58,19 @@ const AdminDashboard: React.FC = () => {
   // Initialize Audio Object
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
+    audioRef.current.load(); // 預先載入
   }, []);
 
   // --- Real-time Orders (Active Only) ---
   // 優化：只監聽「未完成」的訂單，減少讀取量
+  // 修正：移除 orderBy("createdAt", "desc") 以避免複合索引錯誤，改為前端排序
   useEffect(() => {
     setOrdersLoading(true);
     // 查詢非歷史訂單 (新訂單、製作中、可取餐)
+    // 注意：不使用 orderBy，避免與 where('status', 'in') 衝突導致需要索引
     const q = query(
         collection(db, "orders"), 
-        where("status", "in", [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.COMPLETED]),
-        orderBy("createdAt", "desc")
+        where("status", "in", [OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.COMPLETED])
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -72,24 +78,20 @@ const AdminDashboard: React.FC = () => {
         id: doc.id,
         ...doc.data()
       } as Order));
+      
+      // 前端記憶體排序 (新到舊)
+      newOrders.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
       setActiveOrders(newOrders);
       setOrdersLoading(false);
     }, (error) => {
-      // 處理索引錯誤：如果因為複合查詢導致錯誤，則退回到查詢所有訂單 (相容性)
-      console.error("讀取訂單失敗 (可能缺索引):", error);
-      // Fallback: 讀取所有並前端過濾
-      const fallbackQ = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-      const fallbackUnsubscribe = onSnapshot(fallbackQ, (snap) => {
-         const allOrders = snap.docs.map(d => ({id: d.id, ...d.data()} as Order));
-         // Filter active ones
-         setActiveOrders(allOrders.filter(o => 
-             o.status === OrderStatus.PENDING || 
-             o.status === OrderStatus.PREPARING || 
-             o.status === OrderStatus.COMPLETED
-         ));
-         setOrdersLoading(false);
-      });
-      return () => fallbackUnsubscribe();
+      console.error("讀取訂單失敗:", error);
+      showToast("讀取訂單失敗，請檢查網路連線", "error");
+      setOrdersLoading(false);
     });
     
     return () => unsubscribe();
@@ -117,28 +119,42 @@ const AdminDashboard: React.FC = () => {
 
   // --- Notification Logic ---
   useEffect(() => {
+    // 只有當訂單數增加時才播放 (避免初始載入時亂叫)
     if (pendingCount > prevPendingCountRef.current) {
         const diff = pendingCount - prevPendingCountRef.current;
         showToast(`🔔 收到 ${diff} 筆新訂單！`, 'info');
+        
         if (isSoundEnabled && audioRef.current) {
             audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(e => console.error("音效播放失敗", e));
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error("音效自動播放被阻擋:", error);
+                    showToast("瀏覽器阻擋了自動播放，請點擊頁面任意處或重新開啟音效", "info");
+                });
+            }
         }
     }
     prevPendingCountRef.current = pendingCount;
   }, [pendingCount, isSoundEnabled, showToast]);
 
   const toggleSound = () => {
-    setIsSoundEnabled(prev => !prev);
-    if (!isSoundEnabled && audioRef.current) {
-        audioRef.current.play().catch(() => {}).then(() => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-            }
-        });
+    const newState = !isSoundEnabled;
+    setIsSoundEnabled(newState);
+    localStorage.setItem('isSoundEnabled', String(newState));
+    
+    if (newState) {
+        // 啟用時播放一次以測試並取得權限
+        if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+        }
         showToast("🔔 音效通知已啟用", "success");
     } else {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
         showToast("🔕 音效通知已關閉", "info");
     }
   };
@@ -178,7 +194,6 @@ const AdminDashboard: React.FC = () => {
           } as Order));
 
           // 前端過濾：只顯示「已送餐」或「已取消」
-          // (這樣可以避免在 Firestore 建立複雜的複合索引)
           const filteredHistory = results.filter(o => 
               o.status === OrderStatus.SERVED || 
               o.status === OrderStatus.CANCELLED
@@ -390,13 +405,6 @@ const AdminDashboard: React.FC = () => {
   };
   
   const clearHistoryOrders = async () => {
-    // 這裡清除的是資料庫中所有的歷史訂單，與當前搜尋無關
-    // 為了安全，我們還是需要執行查詢來確定有哪些要刪
-    // 這裡只簡單實作：清除「所有」已結案/已取消 (不論日期)
-    // 但這需要全表掃描，成本高。
-    // 建議：只清除「當前搜尋結果」中的訂單？
-    // 使用者需求是「清除所有歷史訂單」。
-    
     if (!window.confirm(`即將永久刪除「所有」歷史訂單 (已結案/已取消)。\n此動作無法復原，確定要執行嗎？`)) {
       return;
     }
@@ -407,13 +415,10 @@ const AdminDashboard: React.FC = () => {
     }
     
     try {
-      // 這裡需要查詢所有歷史訂單 (可能需要分批)
-      // 簡單起見，我們只查詢最近 500 筆歷史來刪除，避免超時
       const q = query(
           collection(db, "orders"), 
           where("status", "in", [OrderStatus.SERVED, OrderStatus.CANCELLED]),
           orderBy("createdAt", "desc")
-          // limit(500) // Optional
       );
       const snapshot = await getDocs(q);
       
@@ -429,7 +434,7 @@ const AdminDashboard: React.FC = () => {
       await batch.commit();
       
       showToast(`已清除 ${snapshot.size} 筆歷史訂單`, "success");
-      setHistoryOrders([]); // 清空當前顯示
+      setHistoryOrders([]); 
     } catch (e) {
       console.error("清除失敗:", e);
       showToast("清除失敗 (可能需要索引或資料量過大)", "error");
@@ -464,7 +469,6 @@ const AdminDashboard: React.FC = () => {
         
         await batch.commit();
         showToast("訂單已清空！", "success");
-        // 本地狀態會因 onSnapshot 自動更新 activeOrders，但 history 需要手動清
         setHistoryOrders([]);
     } catch (error) {
         console.error("清空訂單失敗:", error);
