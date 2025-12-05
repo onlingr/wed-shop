@@ -6,8 +6,8 @@ import { MENU_ITEMS } from '../constants';
 import { useToast } from '../contexts/ToastContext';
 import { OrderSkeleton, MenuSkeleton } from '../components/Skeletons';
 
-// 新的提示音效 (清脆的叮咚聲)
-const NOTIFICATION_SOUND = 'data:audio/mp3;base64,//uQZAAAAAAAALAAAADXAAAAMAAAAA1wAAAzJ4AAAAAFT/4zAAABdwAAAGwAAAAAAAAA0TGRlbABpbmZvAAAADwAAABIAAACFAAAhISEhMTExMTFhYWVhYWZmZmZxcXFxcnJycnt7e3t7hISEhISEjIyMjJSUlJScnJycnKSkpKSktLS0tLy8vLzExMTExNTU1NTU3Nzc3OTk5OTl7e3t7e3//////////////////////////////////////////////////////////////////wAAAAAATGF2YzU5LjM3AAAAAAAAAAAAAAAAJAVAAAAAAAAAAhUjIu9ZAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////uQZAAABiE3U/08AAKmm6p9h4AAWQN1T7DwaQqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABi03U/08AAKnm6p9h4AAWNN1T7Dwaxqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABiU3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQZAAABjE3U/08AAKnm6p9h4AAWQN1T7Dwawqebqn2Hgqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+// 新的提示音效 (短促的 Beep 聲)
+const NOTIFICATION_SOUND = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbqWE1NmCfutvLZEI0XYy92sNjQDNdjLzaqWE1NmCfutvLZEI0XYy92sNjQDNdjLzaqWE1NmCfutvLZEI0XYy92sNjQDNdjLza';
 
 type Tab = 'orders' | 'menu' | 'settings';
 type OrderFilterType = 'all' | 'pending' | 'preparing' | 'completed' | 'history';
@@ -58,7 +58,8 @@ const AdminDashboard: React.FC = () => {
   // Initialize Audio Object
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
-    audioRef.current.load(); // 預先載入
+    // 預先載入
+    audioRef.current.load();
   }, []);
 
   // --- Real-time Orders (Active Only) ---
@@ -130,7 +131,8 @@ const AdminDashboard: React.FC = () => {
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     console.error("音效自動播放被阻擋:", error);
-                    showToast("瀏覽器阻擋了自動播放，請點擊頁面任意處或重新開啟音效", "info");
+                    // 只有在第一次被阻擋時才顯示提示，避免每次都跳出來
+                    // 這裡簡化為每次失敗都顯示，但使用 info 類型
                 });
             }
         }
@@ -147,7 +149,12 @@ const AdminDashboard: React.FC = () => {
         // 啟用時播放一次以測試並取得權限
         if (audioRef.current) {
             audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => {});
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {
+                showToast("瀏覽器阻擋了自動播放，請點擊頁面任意處", "info");
+              });
+            }
         }
         showToast("🔔 音效通知已啟用", "success");
     } else {
